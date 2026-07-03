@@ -43,7 +43,11 @@ a { color: inherit; }
 .sidebar {
   width: 232px; flex-shrink: 0; padding: 16px 12px; display: flex; flex-direction: column; gap: 3px;
   background: linear-gradient(180deg, var(--bg2), var(--bg)); border-right: 1px solid var(--line);
-  position: sticky; top: 0; height: 100vh; z-index: 30;
+  /* align-self:flex-start is load-bearing: as a flex child the sidebar is
+     stretched to the page's full (scrolling) height by default, which leaves
+     position:sticky nothing to pin against — so it scrolled away with the page.
+     Pinning the cross-size to its own content lets sticky top:0 hold it. */
+  align-self: flex-start; position: sticky; top: 0; height: 100vh; z-index: 30;
 }
 .brand { display: flex; align-items: center; gap: 11px; padding: 10px 12px 18px; font-weight: 800; font-size: 19px; letter-spacing: -.01em; }
 .brand img { width: 30px; height: 30px; }
@@ -62,8 +66,14 @@ body[data-theme="light"] .navlink.active { color: var(--text); }
 .version-tag { font-size: 10.5px; color: var(--subtle); padding: 8px 13px 4px; opacity: .7; }
 .nav-collapse { margin-left: auto; background: none; border: none; color: var(--subtle); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 6px; }
 .nav-collapse:hover { color: var(--text); background: var(--bg3); }
+.nav-collapse::before { content: "«"; }                      /* arrow via CSS so collapse/expand flips with one rule */
 body.nav-collapsed .sidebar { width: 66px; }
-body.nav-collapsed .navlink span, body.nav-collapsed .brand span, body.nav-collapsed .version-tag, body.nav-collapsed .nav-collapse { display: none; }
+/* keep the toggle itself VISIBLE when collapsed (it used to be display:none'd,
+   which trapped you in the collapsed state with no way to expand); just hide the
+   wordmark and flip the arrow to point the other way. */
+body.nav-collapsed .navlink span, body.nav-collapsed .brand span, body.nav-collapsed .version-tag, body.nav-collapsed .brand img { display: none; }
+body.nav-collapsed .nav-collapse { margin: 0 auto; }
+body.nav-collapsed .nav-collapse::before { content: "»"; }
 body.nav-collapsed .navlink { justify-content: center; }
 body.nav-collapsed .brand { justify-content: center; padding: 10px 0 18px; }
 /* genre chips + author links */
@@ -328,6 +338,19 @@ body[data-theme="light"] .media-card:hover { box-shadow: 0 18px 38px rgba(15,23,
   color: var(--text); padding: 12px 22px; border-radius: 999px; border: 1px solid var(--accent); box-shadow: var(--shadow);
   opacity: 0; pointer-events: none; transition: all .25s; font-size: 14px; z-index: 60; }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- modal (in-app prompts, replaces native prompt()) ---------- */
+.modal { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(3,8,20,.62); backdrop-filter: blur(3px); animation: modalIn .18s ease; }
+@keyframes modalIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-card { width: 100%; max-width: 400px; background: var(--bg2); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px 22px 18px; }
+.modal-card h3 { font-size: 18px; margin-bottom: 14px; }
+.modal-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; font-size: 13px; color: var(--subtle); }
+.modal-row input, .modal-row textarea { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--bg3); color: var(--text); font-size: 15px; font-family: inherit; }
+.modal-row input:focus, .modal-row textarea:focus { outline: none; border-color: var(--accent); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 
 /* ---------- login ---------- */
 .login-body { display: grid; place-items: center; }

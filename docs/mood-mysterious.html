@@ -16,7 +16,7 @@
 <body>
 <nav class="sidebar">
   <div class="brand"><img src="static/icon.svg" alt=""><span>Stackarr</span>
-    <button class="nav-collapse" onclick="Stackarr.toggleNav()" title="Collapse menu" aria-label="Collapse menu">«</button></div>
+    <button class="nav-collapse" onclick="Stackarr.toggleNav()" title="Collapse / expand menu" aria-label="Collapse or expand menu"></button></div>
   <a href="index.html" class="navlink " title="Home">
     <svg viewBox="0 0 24 24"><path d="M12 3 2 12h3v8h5v-6h4v6h5v-8h3z"/></svg><span>Home</span></a>
   <a href="suggestions.html" class="navlink " title="Suggestions">
@@ -38,7 +38,7 @@
       <svg viewBox="0 0 24 24"><path d="M17 7l-1.4 1.4L18.2 11H8v2h10.2l-2.6 2.6L17 17l5-5zM4 5h8V3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8v-2H4z"/></svg>
       <span>demo</span></button>
   </form>
-  <div class="version-tag">v1.6.5 · demo</div>
+  <div class="version-tag">v1.6.7 · demo</div>
 </nav>
 
 <div class="shell">
@@ -57,31 +57,251 @@
 <button class="btn small ghost back-btn" onclick="history.back()">‹ Back</button>
 <div class="page-head">
   <h2 class="page-title">mysterious
-    <span class="subtle">1 found</span></h2>
+    <span class="subtle">15 found</span></h2>
   
 </div>
 
 <div class="grid">
   
   <div class="media-card">
-    <a class="media-poster" href="book-B0GQZNZ7BF.html">
-      <img src="https://m.media-amazon.com/images/I/41YpJvAeRoL._SL1500_.jpg" loading="lazy" alt="">
+    <a class="media-poster" href="book-B0C28WLQP1.html">
+      <img src="https://m.media-amazon.com/images/I/51uxvAxiknL._SL1500_.jpg" loading="lazy" alt="">
       
       <div class="media-overlay">
-        <div class="ov-reason">Meg Smitherman</div>
+        <div class="ov-reason">Pierce Brown · Red Rising</div>
         <div class="ov-actions">
-          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0GQZNZ7BF", "author": "Meg Smitherman", "cover": "https://m.media-amazon.com/images/I/41YpJvAeRoL._SL1500_.jpg", "series": null, "state": "new", "title": "Fervor"}, this)'>Request</button>
-          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0GQZNZ7BF", "author": "Meg Smitherman", "cover": "https://m.media-amazon.com/images/I/41YpJvAeRoL._SL1500_.jpg", "series": null, "state": "new", "title": "Fervor"}, this)'>Ignore</button>
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0C28WLQP1", "author": "Pierce Brown", "cover": "https://m.media-amazon.com/images/I/51uxvAxiknL._SL1500_.jpg", "series": "Red Rising", "state": "new", "title": "Light Bringer"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0C28WLQP1", "author": "Pierce Brown", "cover": "https://m.media-amazon.com/images/I/51uxvAxiknL._SL1500_.jpg", "series": "Red Rising", "state": "new", "title": "Light Bringer"}, this)'>Ignore</button>
         </div>
       </div>
     </a>
-    <div class="media-foot"><div class="media-title" title="Fervor">Fervor</div><div class="media-author">Meg Smitherman</div></div>
+    <div class="media-foot"><div class="media-title" title="Light Bringer">Light Bringer</div><div class="media-author">Pierce Brown</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B073H9PF2D.html">
+      <img src="https://m.media-amazon.com/images/I/51RE2p8RLML._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">James S. A. Corey · The Expanse</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B073H9PF2D", "author": "James S. A. Corey", "cover": "https://m.media-amazon.com/images/I/51RE2p8RLML._SL1500_.jpg", "series": "The Expanse", "state": "new", "title": "Leviathan Wakes"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B073H9PF2D", "author": "James S. A. Corey", "cover": "https://m.media-amazon.com/images/I/51RE2p8RLML._SL1500_.jpg", "series": "The Expanse", "state": "new", "title": "Leviathan Wakes"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Leviathan Wakes">Leviathan Wakes</div><div class="media-author">James S. A. Corey</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0FQPMSN8D.html">
+      <img src="https://m.media-amazon.com/images/I/51zdA5mta3L._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Peter Clines</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0FQPMSN8D", "author": "Peter Clines", "cover": "https://m.media-amazon.com/images/I/51zdA5mta3L._SL1500_.jpg", "series": null, "state": "new", "title": "God\u0027s Junk Drawer"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0FQPMSN8D", "author": "Peter Clines", "cover": "https://m.media-amazon.com/images/I/51zdA5mta3L._SL1500_.jpg", "series": null, "state": "new", "title": "God\u0027s Junk Drawer"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="God&#39;s Junk Drawer">God&#39;s Junk Drawer</div><div class="media-author">Peter Clines</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0GJ6MQLKJ.html">
+      <img src="https://m.media-amazon.com/images/I/41GgXuhAAwL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Martha Wells · Murderbot Diaries</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0GJ6MQLKJ", "author": "Martha Wells", "cover": "https://m.media-amazon.com/images/I/41GgXuhAAwL._SL1500_.jpg", "series": "Murderbot Diaries", "state": "new", "title": "Platform Decay"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0GJ6MQLKJ", "author": "Martha Wells", "cover": "https://m.media-amazon.com/images/I/41GgXuhAAwL._SL1500_.jpg", "series": "Murderbot Diaries", "state": "new", "title": "Platform Decay"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Platform Decay">Platform Decay</div><div class="media-author">Martha Wells</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0DT7HY6R7.html">
+      <img src="https://m.media-amazon.com/images/I/51Co28za4BL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">John Scalzi · Old Man’s War</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0DT7HY6R7", "author": "John Scalzi", "cover": "https://m.media-amazon.com/images/I/51Co28za4BL._SL1500_.jpg", "series": "Old Man\u2019s War", "state": "new", "title": "The Shattering Peace"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0DT7HY6R7", "author": "John Scalzi", "cover": "https://m.media-amazon.com/images/I/51Co28za4BL._SL1500_.jpg", "series": "Old Man\u2019s War", "state": "new", "title": "The Shattering Peace"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="The Shattering Peace">The Shattering Peace</div><div class="media-author">John Scalzi</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B00P9XDQFY.html">
+      <img src="https://m.media-amazon.com/images/I/51Y8QPmaGoL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">James S. A. Corey · The Expanse</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B00P9XDQFY", "author": "James S. A. Corey", "cover": "https://m.media-amazon.com/images/I/51Y8QPmaGoL._SL1500_.jpg", "series": "The Expanse", "state": "new", "title": "Leviathan Wakes"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B00P9XDQFY", "author": "James S. A. Corey", "cover": "https://m.media-amazon.com/images/I/51Y8QPmaGoL._SL1500_.jpg", "series": "The Expanse", "state": "new", "title": "Leviathan Wakes"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Leviathan Wakes">Leviathan Wakes</div><div class="media-author">James S. A. Corey</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0FF61W874.html">
+      <img src="https://m.media-amazon.com/images/I/51r7UjHEwEL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Pierce Brown · Red Rising</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0FF61W874", "author": "Pierce Brown", "cover": "https://m.media-amazon.com/images/I/51r7UjHEwEL._SL1500_.jpg", "series": "Red Rising", "state": "new", "title": "Dark Age (1 of 3) [Dramatized Adaptation]"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0FF61W874", "author": "Pierce Brown", "cover": "https://m.media-amazon.com/images/I/51r7UjHEwEL._SL1500_.jpg", "series": "Red Rising", "state": "new", "title": "Dark Age (1 of 3) [Dramatized Adaptation]"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Dark Age (1 of 3) [Dramatized Adaptation]">Dark Age (1 of 3) [Dramatized Adaptation]</div><div class="media-author">Pierce Brown</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0BG3BVBR8.html">
+      <img src="https://m.media-amazon.com/images/I/51VDmybgQUL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Orson Card · Alvin Maker</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0BG3BVBR8", "author": "Orson Card", "cover": "https://m.media-amazon.com/images/I/51VDmybgQUL._SL1500_.jpg", "series": "Alvin Maker", "state": "new", "title": "Seventh Son"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0BG3BVBR8", "author": "Orson Card", "cover": "https://m.media-amazon.com/images/I/51VDmybgQUL._SL1500_.jpg", "series": "Alvin Maker", "state": "new", "title": "Seventh Son"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Seventh Son">Seventh Son</div><div class="media-author">Orson Card</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0G4SLBQ9V.html">
+      <img src="https://m.media-amazon.com/images/I/51ua0KbobGL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Pierce Brown · Red Rising</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0G4SLBQ9V", "author": "Pierce Brown", "cover": "https://m.media-amazon.com/images/I/51ua0KbobGL._SL1500_.jpg", "series": "Red Rising", "state": "new", "title": "Dark Age (2 of 3) [Dramatized Adaptation]"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0G4SLBQ9V", "author": "Pierce Brown", "cover": "https://m.media-amazon.com/images/I/51ua0KbobGL._SL1500_.jpg", "series": "Red Rising", "state": "new", "title": "Dark Age (2 of 3) [Dramatized Adaptation]"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Dark Age (2 of 3) [Dramatized Adaptation]">Dark Age (2 of 3) [Dramatized Adaptation]</div><div class="media-author">Pierce Brown</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0DK423PR1.html">
+      <img src="https://m.media-amazon.com/images/I/517LwQfIwhL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Orson Scott Card · The Ender Saga</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0DK423PR1", "author": "Orson Scott Card", "cover": "https://m.media-amazon.com/images/I/517LwQfIwhL._SL1500_.jpg", "series": "The Ender Saga", "state": "new", "title": "Ender\u0027s Game"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0DK423PR1", "author": "Orson Scott Card", "cover": "https://m.media-amazon.com/images/I/517LwQfIwhL._SL1500_.jpg", "series": "The Ender Saga", "state": "new", "title": "Ender\u0027s Game"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Ender&#39;s Game">Ender&#39;s Game</div><div class="media-author">Orson Scott Card</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0GQ1B5XGQ.html">
+      <img src="https://m.media-amazon.com/images/I/41b-AxDyIEL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Lennart Lopin</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0GQ1B5XGQ", "author": "Lennart Lopin", "cover": "https://m.media-amazon.com/images/I/41b-AxDyIEL._SL1500_.jpg", "series": null, "state": "new", "title": "We Do Not Come In Peace"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0GQ1B5XGQ", "author": "Lennart Lopin", "cover": "https://m.media-amazon.com/images/I/41b-AxDyIEL._SL1500_.jpg", "series": null, "state": "new", "title": "We Do Not Come In Peace"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="We Do Not Come In Peace">We Do Not Come In Peace</div><div class="media-author">Lennart Lopin</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0GS7CGR3Y.html">
+      <img src="https://m.media-amazon.com/images/I/51olQwPlH1L._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Brandon Sanderson, Janci Patterson · Riftwake</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0GS7CGR3Y", "author": "Brandon Sanderson, Janci Patterson", "cover": "https://m.media-amazon.com/images/I/51olQwPlH1L._SL1500_.jpg", "series": "Riftwake", "state": "new", "title": "Blightfall"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0GS7CGR3Y", "author": "Brandon Sanderson, Janci Patterson", "cover": "https://m.media-amazon.com/images/I/51olQwPlH1L._SL1500_.jpg", "series": "Riftwake", "state": "new", "title": "Blightfall"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Blightfall">Blightfall</div><div class="media-author">Brandon Sanderson, Janci Patterson</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0GTN7WBFX.html">
+      <img src="https://m.media-amazon.com/images/I/51yZtMC1jrL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Marc J. Gregson</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0GTN7WBFX", "author": "Marc J. Gregson", "cover": "https://m.media-amazon.com/images/I/51yZtMC1jrL._SL1500_.jpg", "series": null, "state": "new", "title": "Behind the Glass"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0GTN7WBFX", "author": "Marc J. Gregson", "cover": "https://m.media-amazon.com/images/I/51yZtMC1jrL._SL1500_.jpg", "series": null, "state": "new", "title": "Behind the Glass"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Behind the Glass">Behind the Glass</div><div class="media-author">Marc J. Gregson</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0GS513Q2W.html">
+      <img src="https://m.media-amazon.com/images/I/51uLq2O6OKL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Pierce Brown · Red Rising</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0GS513Q2W", "author": "Pierce Brown", "cover": "https://m.media-amazon.com/images/I/51uLq2O6OKL._SL1500_.jpg", "series": "Red Rising", "state": "new", "title": "Dark Age (3 of 3) [Dramatized Adaptation]"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0GS513Q2W", "author": "Pierce Brown", "cover": "https://m.media-amazon.com/images/I/51uLq2O6OKL._SL1500_.jpg", "series": "Red Rising", "state": "new", "title": "Dark Age (3 of 3) [Dramatized Adaptation]"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Dark Age (3 of 3) [Dramatized Adaptation]">Dark Age (3 of 3) [Dramatized Adaptation]</div><div class="media-author">Pierce Brown</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0FL2T5ZD8.html">
+      <img src="https://m.media-amazon.com/images/I/51oFteOVKeL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Damien Ober</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0FL2T5ZD8", "author": "Damien Ober", "cover": "https://m.media-amazon.com/images/I/51oFteOVKeL._SL1500_.jpg", "series": null, "state": "new", "title": "Voidverse"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0FL2T5ZD8", "author": "Damien Ober", "cover": "https://m.media-amazon.com/images/I/51oFteOVKeL._SL1500_.jpg", "series": null, "state": "new", "title": "Voidverse"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Voidverse">Voidverse</div><div class="media-author">Damien Ober</div></div>
   </div>
   
 </div>
 </main>
 </div>
 
+<div id="modal" class="modal" hidden onclick="if(event.target===this)Stackarr._modalCancel()">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" type="button" onclick="Stackarr._modalCancel()">Cancel</button>
+      <button class="btn" type="button" onclick="Stackarr._modalOk()">Continue</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 <script>window.URL_BASE="";</script>
 <script src="static/app.js"></script>

@@ -16,7 +16,7 @@
 <body>
 <nav class="sidebar">
   <div class="brand"><img src="static/icon.svg" alt=""><span>Stackarr</span>
-    <button class="nav-collapse" onclick="Stackarr.toggleNav()" title="Collapse menu" aria-label="Collapse menu">«</button></div>
+    <button class="nav-collapse" onclick="Stackarr.toggleNav()" title="Collapse / expand menu" aria-label="Collapse or expand menu"></button></div>
   <a href="index.html" class="navlink " title="Home">
     <svg viewBox="0 0 24 24"><path d="M12 3 2 12h3v8h5v-6h4v6h5v-8h3z"/></svg><span>Home</span></a>
   <a href="suggestions.html" class="navlink " title="Suggestions">
@@ -38,7 +38,7 @@
       <svg viewBox="0 0 24 24"><path d="M17 7l-1.4 1.4L18.2 11H8v2h10.2l-2.6 2.6L17 17l5-5zM4 5h8V3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8v-2H4z"/></svg>
       <span>demo</span></button>
   </form>
-  <div class="version-tag">v1.6.5 · demo</div>
+  <div class="version-tag">v1.6.7 · demo</div>
 </nav>
 
 <div class="shell">
@@ -57,61 +57,131 @@
 <button class="btn small ghost back-btn" onclick="history.back()">‹ Back</button>
 <div class="page-head">
   <h2 class="page-title">intense
-    <span class="subtle">3 found</span></h2>
+    <span class="subtle">7 found</span></h2>
   
 </div>
 
 <div class="grid">
   
   <div class="media-card">
-    <a class="media-poster" href="book-B0DJN1BCLS.html">
-      <img src="https://m.media-amazon.com/images/I/51nidelfhPL._SL1500_.jpg" loading="lazy" alt="">
+    <a class="media-poster" href="book-B0F4ZRQT9C.html">
+      <img src="https://m.media-amazon.com/images/I/41GSTR-RBAL._SL1500_.jpg" loading="lazy" alt="">
       
       <div class="media-overlay">
-        <div class="ov-reason">Brandon Sanderson · Secret Projects</div>
+        <div class="ov-reason">Seraphina Nova Glass</div>
         <div class="ov-actions">
-          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0DJN1BCLS", "author": "Brandon Sanderson", "cover": "https://m.media-amazon.com/images/I/51nidelfhPL._SL1500_.jpg", "series": "Secret Projects", "state": "new", "title": "Yumi and the Nightmare Painter (Dramatized Adaptation)"}, this)'>Request</button>
-          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0DJN1BCLS", "author": "Brandon Sanderson", "cover": "https://m.media-amazon.com/images/I/51nidelfhPL._SL1500_.jpg", "series": "Secret Projects", "state": "new", "title": "Yumi and the Nightmare Painter (Dramatized Adaptation)"}, this)'>Ignore</button>
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0F4ZRQT9C", "author": "Seraphina Nova Glass", "cover": "https://m.media-amazon.com/images/I/41GSTR-RBAL._SL1500_.jpg", "series": null, "state": "new", "title": "The Swamps"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0F4ZRQT9C", "author": "Seraphina Nova Glass", "cover": "https://m.media-amazon.com/images/I/41GSTR-RBAL._SL1500_.jpg", "series": null, "state": "new", "title": "The Swamps"}, this)'>Ignore</button>
         </div>
       </div>
     </a>
-    <div class="media-foot"><div class="media-title" title="Yumi and the Nightmare Painter (Dramatized Adaptation)">Yumi and the Nightmare Painter (Dramatized Adaptation)</div><div class="media-author">Brandon Sanderson</div></div>
+    <div class="media-foot"><div class="media-title" title="The Swamps">The Swamps</div><div class="media-author">Seraphina Nova Glass</div></div>
   </div>
   
   <div class="media-card">
-    <a class="media-poster" href="book-B0FF61W874.html">
-      <img src="https://m.media-amazon.com/images/I/51r7UjHEwEL._SL1500_.jpg" loading="lazy" alt="">
+    <a class="media-poster" href="book-B0G5T58YV5.html">
+      <img src="https://m.media-amazon.com/images/I/51Ico-0IQoL._SL1500_.jpg" loading="lazy" alt="">
       
       <div class="media-overlay">
-        <div class="ov-reason">Pierce Brown · Red Rising</div>
+        <div class="ov-reason">Robin Hobb · Farseer Trilogy</div>
         <div class="ov-actions">
-          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0FF61W874", "author": "Pierce Brown", "cover": "https://m.media-amazon.com/images/I/51r7UjHEwEL._SL1500_.jpg", "series": "Red Rising", "state": "new", "title": "Dark Age (1 of 3) [Dramatized Adaptation]"}, this)'>Request</button>
-          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0FF61W874", "author": "Pierce Brown", "cover": "https://m.media-amazon.com/images/I/51r7UjHEwEL._SL1500_.jpg", "series": "Red Rising", "state": "new", "title": "Dark Age (1 of 3) [Dramatized Adaptation]"}, this)'>Ignore</button>
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0G5T58YV5", "author": "Robin Hobb", "cover": "https://m.media-amazon.com/images/I/51Ico-0IQoL._SL1500_.jpg", "series": "Farseer Trilogy", "state": "new", "title": "Royal Assassin"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0G5T58YV5", "author": "Robin Hobb", "cover": "https://m.media-amazon.com/images/I/51Ico-0IQoL._SL1500_.jpg", "series": "Farseer Trilogy", "state": "new", "title": "Royal Assassin"}, this)'>Ignore</button>
         </div>
       </div>
     </a>
-    <div class="media-foot"><div class="media-title" title="Dark Age (1 of 3) [Dramatized Adaptation]">Dark Age (1 of 3) [Dramatized Adaptation]</div><div class="media-author">Pierce Brown</div></div>
+    <div class="media-foot"><div class="media-title" title="Royal Assassin">Royal Assassin</div><div class="media-author">Robin Hobb</div></div>
   </div>
   
   <div class="media-card">
-    <a class="media-poster" href="book-B0FK6XSCNM.html">
-      <img src="https://m.media-amazon.com/images/I/51cW-70PhFL._SL1500_.jpg" loading="lazy" alt="">
+    <a class="media-poster" href="book-B0GQZY4RXP.html">
+      <img src="https://m.media-amazon.com/images/I/51j5C3wdmVL._SL1500_.jpg" loading="lazy" alt="">
       
       <div class="media-overlay">
-        <div class="ov-reason">Brandon Sanderson · The Cosmere</div>
+        <div class="ov-reason">Meg Smitherman</div>
         <div class="ov-actions">
-          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0FK6XSCNM", "author": "Brandon Sanderson", "cover": "https://m.media-amazon.com/images/I/51cW-70PhFL._SL1500_.jpg", "series": "The Cosmere", "state": "new", "title": "Warbreaker: Tenth Anniversary Edition (Part 1 of 2) (Dramatized Adaptation)"}, this)'>Request</button>
-          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0FK6XSCNM", "author": "Brandon Sanderson", "cover": "https://m.media-amazon.com/images/I/51cW-70PhFL._SL1500_.jpg", "series": "The Cosmere", "state": "new", "title": "Warbreaker: Tenth Anniversary Edition (Part 1 of 2) (Dramatized Adaptation)"}, this)'>Ignore</button>
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0GQZY4RXP", "author": "Meg Smitherman", "cover": "https://m.media-amazon.com/images/I/51j5C3wdmVL._SL1500_.jpg", "series": null, "state": "new", "title": "Thrum"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0GQZY4RXP", "author": "Meg Smitherman", "cover": "https://m.media-amazon.com/images/I/51j5C3wdmVL._SL1500_.jpg", "series": null, "state": "new", "title": "Thrum"}, this)'>Ignore</button>
         </div>
       </div>
     </a>
-    <div class="media-foot"><div class="media-title" title="Warbreaker: Tenth Anniversary Edition (Part 1 of 2) (Dramatized Adaptation)">Warbreaker: Tenth Anniversary Edition (Part 1 of 2) (Dramatized Adaptation)</div><div class="media-author">Brandon Sanderson</div></div>
+    <div class="media-foot"><div class="media-title" title="Thrum">Thrum</div><div class="media-author">Meg Smitherman</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0H4WFDQX1.html">
+      <img src="https://m.media-amazon.com/images/I/51DqX9skQCL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Cal Merritt</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0H4WFDQX1", "author": "Cal Merritt", "cover": "https://m.media-amazon.com/images/I/51DqX9skQCL._SL1500_.jpg", "series": null, "state": "new", "title": "Dead Frequency"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0H4WFDQX1", "author": "Cal Merritt", "cover": "https://m.media-amazon.com/images/I/51DqX9skQCL._SL1500_.jpg", "series": null, "state": "new", "title": "Dead Frequency"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Dead Frequency">Dead Frequency</div><div class="media-author">Cal Merritt</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0GGHNR35S.html">
+      <img src="https://m.media-amazon.com/images/I/31q0t1AE9LL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Forrest Brazeal</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0GGHNR35S", "author": "Forrest Brazeal", "cover": "https://m.media-amazon.com/images/I/31q0t1AE9LL._SL1500_.jpg", "series": null, "state": "new", "title": "Paradox Inc."}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0GGHNR35S", "author": "Forrest Brazeal", "cover": "https://m.media-amazon.com/images/I/31q0t1AE9LL._SL1500_.jpg", "series": null, "state": "new", "title": "Paradox Inc."}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="Paradox Inc.">Paradox Inc.</div><div class="media-author">Forrest Brazeal</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0H11MBHWN.html">
+      <img src="https://m.media-amazon.com/images/I/41ROUxXXx2L._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">Matthew Aldrich</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0H11MBHWN", "author": "Matthew Aldrich", "cover": "https://m.media-amazon.com/images/I/41ROUxXXx2L._SL1500_.jpg", "series": null, "state": "new", "title": "The Natural Order"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0H11MBHWN", "author": "Matthew Aldrich", "cover": "https://m.media-amazon.com/images/I/41ROUxXXx2L._SL1500_.jpg", "series": null, "state": "new", "title": "The Natural Order"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="The Natural Order">The Natural Order</div><div class="media-author">Matthew Aldrich</div></div>
+  </div>
+  
+  <div class="media-card">
+    <a class="media-poster" href="book-B0GMY7DGCF.html">
+      <img src="https://m.media-amazon.com/images/I/51I8cFnT5bL._SL1500_.jpg" loading="lazy" alt="">
+      
+      <div class="media-overlay">
+        <div class="ov-reason">James Patterson, MrBeast</div>
+        <div class="ov-actions">
+          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0GMY7DGCF", "author": "James Patterson, MrBeast", "cover": "https://m.media-amazon.com/images/I/51I8cFnT5bL._SL1500_.jpg", "series": null, "state": "new", "title": "The Most Dangerous Games"}, this)'>Request</button>
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0GMY7DGCF", "author": "James Patterson, MrBeast", "cover": "https://m.media-amazon.com/images/I/51I8cFnT5bL._SL1500_.jpg", "series": null, "state": "new", "title": "The Most Dangerous Games"}, this)'>Ignore</button>
+        </div>
+      </div>
+    </a>
+    <div class="media-foot"><div class="media-title" title="The Most Dangerous Games">The Most Dangerous Games</div><div class="media-author">James Patterson, MrBeast</div></div>
   </div>
   
 </div>
 </main>
 </div>
 
+<div id="modal" class="modal" hidden onclick="if(event.target===this)Stackarr._modalCancel()">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" type="button" onclick="Stackarr._modalCancel()">Cancel</button>
+      <button class="btn" type="button" onclick="Stackarr._modalOk()">Continue</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 <script>window.URL_BASE="";</script>
 <script src="static/app.js"></script>

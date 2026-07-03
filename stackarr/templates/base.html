@@ -16,7 +16,7 @@
 <body>
 <nav class="sidebar">
   <div class="brand"><img src="{{ url_for('static', filename='icon.svg') }}" alt=""><span>{{ app_name }}</span>
-    <button class="nav-collapse" onclick="Stackarr.toggleNav()" title="Collapse menu" aria-label="Collapse menu">«</button></div>
+    <button class="nav-collapse" onclick="Stackarr.toggleNav()" title="Collapse / expand menu" aria-label="Collapse or expand menu"></button></div>
   <a href="{{ url_for('main.home_page') }}" class="navlink {{ 'active' if request.path.endswith('/home') or request.path == url_base+'/' }}" title="Home">
     <svg viewBox="0 0 24 24"><path d="M12 3 2 12h3v8h5v-6h4v6h5v-8h3z"/></svg><span>Home</span></a>
   <a href="{{ url_for('main.suggestions_page') }}" class="navlink {{ 'active' if request.path.endswith('/suggestions') }}" title="Suggestions">
@@ -56,6 +56,16 @@
   <main>{% block content %}{% endblock %}</main>
 </div>
 
+<div id="modal" class="modal" hidden onclick="if(event.target===this)Stackarr._modalCancel()">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" type="button" onclick="Stackarr._modalCancel()">Cancel</button>
+      <button class="btn" type="button" onclick="Stackarr._modalOk()">Continue</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 <script>window.URL_BASE="{{ url_base }}";</script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>

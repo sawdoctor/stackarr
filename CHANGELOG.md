@@ -2,6 +2,37 @@
 
 All notable changes to Stackarr.
 
+## [1.6.7] - 2026-07-04
+
+Fixes from a user field report (thanks Mr Hynesy).
+
+### Fixed
+- **Star ratings now stick.** Rating a library book (Suggestions onboarding /
+  History) wrote under a *recomputed* slug that differed from the key the page
+  rendered from, so the write landed somewhere History never read back — it
+  looked saved but wasn't. `api_rate` now trusts the canonical `t-…` key the
+  client sends instead of recomputing it.
+- **Rating errors are no longer swallowed.** The front-end showed a success
+  toast regardless of the response; `rate()` / `submitReview()` now check the
+  result, surface the real error, and revert the optimistic star fill on failure.
+- **Collapsed sidebar can be expanded again.** The collapse toggle hid *itself*
+  when collapsed, trapping you in the narrow rail. It now stays visible and flips
+  its arrow (« ⇄ »).
+- **Sidebar stays put.** As a stretched flex child it scrolled away despite
+  `position: sticky`; `align-self: flex-start` lets sticky pin it.
+- **Home "Read" shelf populates.** Finished audiobooks/ebooks now seed the Read
+  shelf the same way in-progress titles seed Reading, so it matches the
+  read-this-year count instead of sitting at 0.
+
+### Security
+- **Settings → Reading is admin-gated.** The shared Goodreads RSS / Hardcover
+  token were rendered to every signed-in user (read-only; writes were already
+  admin-only). The panel and the values are now admin-only.
+
+### UI
+- Native `prompt()` dialogs (library sign-in, deny-request reason) replaced with
+  an in-app modal that matches the rest of the UI.
+
 ## [1.6.0] - 2026-06-14
 
 ### Recommendation quality (deterministic, no AI) — see [RECOMMENDATIONS.md](RECOMMENDATIONS.md)

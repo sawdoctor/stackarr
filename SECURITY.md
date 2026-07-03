@@ -17,7 +17,10 @@ Stackarr is a small self-hosted app intended to run on your private network
   default. To embed in nzb360/a dashboard, set `STACKARR_FRAME_ANCESTORS` to that
   origin (or `*` to allow anywhere — not recommended).
 - **Admin:** server-wide reads use `ABS_ADMIN_TOKEN`. Stackarr admins are listed
-  in `STACKARR_ADMINS`.
+  in `STACKARR_ADMINS`. Instance-wide integration settings (SMTP, service
+  connections, and the shared reading-list tokens — Hardcover / Goodreads) are
+  visible and editable to admins only; regular users see only their own
+  per-account preferences.
 - **All routes require auth** (except `/login`, `/api/health`, the PWA manifest
   and service worker). Same level as Sonarr/Audiobookshelf.
 - **Brute-force protection:** repeated failed logins from an IP are throttled

@@ -16,7 +16,7 @@
 <body>
 <nav class="sidebar">
   <div class="brand"><img src="static/icon.svg" alt=""><span>Stackarr</span>
-    <button class="nav-collapse" onclick="Stackarr.toggleNav()" title="Collapse menu" aria-label="Collapse menu">«</button></div>
+    <button class="nav-collapse" onclick="Stackarr.toggleNav()" title="Collapse / expand menu" aria-label="Collapse or expand menu"></button></div>
   <a href="index.html" class="navlink " title="Home">
     <svg viewBox="0 0 24 24"><path d="M12 3 2 12h3v8h5v-6h4v6h5v-8h3z"/></svg><span>Home</span></a>
   <a href="suggestions.html" class="navlink " title="Suggestions">
@@ -38,7 +38,7 @@
       <svg viewBox="0 0 24 24"><path d="M17 7l-1.4 1.4L18.2 11H8v2h10.2l-2.6 2.6L17 17l5-5zM4 5h8V3H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8v-2H4z"/></svg>
       <span>demo</span></button>
   </form>
-  <div class="version-tag">v1.6.5 · demo</div>
+  <div class="version-tag">v1.6.7 · demo</div>
 </nav>
 
 <div class="shell">
@@ -64,24 +64,36 @@
 <div class="grid">
   
   <div class="media-card">
-    <a class="media-poster" href="book-B0GQZNZ7BF.html">
-      <img src="https://m.media-amazon.com/images/I/41YpJvAeRoL._SL1500_.jpg" loading="lazy" alt="">
+    <a class="media-poster" href="book-B01BLUYRKQ.html">
+      <img src="https://m.media-amazon.com/images/I/61VySwhFOSL._SL1500_.jpg" loading="lazy" alt="">
+      <span class="corner-badge available">Available</span>
       
       <div class="media-overlay">
-        <div class="ov-reason">Meg Smitherman</div>
+        <div class="ov-reason">Joe Abercrombie · First Law World</div>
         <div class="ov-actions">
-          <button class="btn" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookRequest({"asin": "B0GQZNZ7BF", "author": "Meg Smitherman", "cover": "https://m.media-amazon.com/images/I/41YpJvAeRoL._SL1500_.jpg", "series": null, "state": "new", "title": "Fervor"}, this)'>Request</button>
-          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B0GQZNZ7BF", "author": "Meg Smitherman", "cover": "https://m.media-amazon.com/images/I/41YpJvAeRoL._SL1500_.jpg", "series": null, "state": "new", "title": "Fervor"}, this)'>Ignore</button>
+          <button class="btn" disabled>In library</button>
+          
+          <button class="btn ghost" onclick='event.preventDefault();event.stopPropagation();Stackarr.bookIgnore({"asin": "B01BLUYRKQ", "author": "Joe Abercrombie", "cover": "https://m.media-amazon.com/images/I/61VySwhFOSL._SL1500_.jpg", "series": "First Law World", "state": "available", "title": "Sharp Ends"}, this)'>Ignore</button>
         </div>
       </div>
     </a>
-    <div class="media-foot"><div class="media-title" title="Fervor">Fervor</div><div class="media-author">Meg Smitherman</div></div>
+    <div class="media-foot"><div class="media-title" title="Sharp Ends">Sharp Ends</div><div class="media-author">Joe Abercrombie</div></div>
   </div>
   
 </div>
 </main>
 </div>
 
+<div id="modal" class="modal" hidden onclick="if(event.target===this)Stackarr._modalCancel()">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" type="button" onclick="Stackarr._modalCancel()">Cancel</button>
+      <button class="btn" type="button" onclick="Stackarr._modalOk()">Continue</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 <script>window.URL_BASE="";</script>
 <script src="static/app.js"></script>

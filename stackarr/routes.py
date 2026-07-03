@@ -930,25 +930,47 @@ def _shelves_data(u):
         seen_titles.add(t.lower())
         shelves["reading"].append({"rkey": rkey or db.rating_key("", t, author), "title": t,
                                    "author": author or "", "cover": cover or "", "format": fmt, "auto": True})
+
+    # The 'read' shelf mirrors 'reading': seed it from what you've actually
+    # FINISHED across connected libraries, merged with anything shelved by hand.
+    # Without this the Home "Read" shelf sat at 0 while the goal ring (which reads
+    # finish dates) showed the right count — finished audiobooks never landed here.
+    read_titles = {(it.get("title") or "").strip().lower() for it in shelves["read"]}
+
+    def _add_read(title, author, cover, fmt, rkey=""):
+        t = (title or "").strip()
+        if not t or t.lower() in read_titles:
+            return
+        read_titles.add(t.lower())
+        shelves["read"].append({"rkey": rkey or db.rating_key("", t, author), "title": t,
+                                "author": author or "", "cover": cover or "", "format": fmt, "auto": True})
     try:
         with db.conn() as c:
             lib = {r["item_id"]: dict(r) for r in c.execute("SELECT item_id,title,author,asin,format FROM library")}
         for h in absclient.listening_history(u["abs_token"]):
-            if not h.get("finished") and (h.get("progress") or 0) > 0.02:
-                m = lib.get(h["item_id"]) or {}
-                if m.get("title"):
-                    # pass the real ASIN as the key so the card links to the book page
-                    _add_reading(m["title"], m.get("author", ""), url_for("main.cover", item_id=h["item_id"]),
-                                 "audiobook", rkey=(m.get("asin") or "").strip())
+            m = lib.get(h["item_id"]) or {}
+            if not m.get("title"):
+                continue
+            # pass the real ASIN as the key so the card links to the book page
+            rk = (m.get("asin") or "").strip()
+            if h.get("finished"):
+                _add_read(m["title"], m.get("author", ""), url_for("main.cover", item_id=h["item_id"]),
+                          "audiobook", rkey=rk)
+            elif (h.get("progress") or 0) > 0.02:
+                _add_reading(m["title"], m.get("author", ""), url_for("main.cover", item_id=h["item_id"]),
+                             "audiobook", rkey=rk)
         if formats.show("ebook"):
             from . import backends
             for be in backends.sources("ebook"):
                 try:
                     for h in be.reading_history(u):
-                        if not h.get("finished") and 0.02 < (h.get("progress") or 0) < 1:
-                            m = lib.get(h["item_id"]) or {}
-                            if m.get("title"):
-                                _add_reading(m["title"], m.get("author", ""), "", "ebook")
+                        m = lib.get(h["item_id"]) or {}
+                        if not m.get("title"):
+                            continue
+                        if h.get("finished"):
+                            _add_read(m["title"], m.get("author", ""), "", "ebook")
+                        elif 0.02 < (h.get("progress") or 0) < 1:
+                            _add_reading(m["title"], m.get("author", ""), "", "ebook")
                 except Exception:
                     pass
         for it in ebookmeta.hardcover_reading(ebookmeta.hardcover_token()):
@@ -957,6 +979,7 @@ def _shelves_data(u):
         log.debug("shelves auto-reading failed: %s", e)
     counts = dict(db.shelf_counts(u["id"]))
     counts["reading"] = len(shelves["reading"])
+    counts["read"] = len(shelves["read"])
     return shelves, counts
 
 
@@ -1155,6 +1178,7 @@ def api_author_add():
 @auth.login_required
 def settings_page():
     g = db.setting
+    is_admin = auth.current_user()["role"] == "admin"
     return render_template("settings.html",
                            email_configured=notify.email_configured(),
                            email_enabled=db.get_meta("email_enabled", "0") == "1",
@@ -1194,8 +1218,8 @@ def settings_page():
                                  "opds_pass": g("opds_pass", config.OPDS_PASS)},
                            abs_ebooks=db.get_meta("abs_ebooks", "1" if config.ABS_EBOOKS else "0") == "1",
                            koreader_sync=db.get_meta("koreader_sync", "1" if config.KOREADER_SYNC else "0") == "1",
-                           reading={"goodreads_rss": g("goodreads_rss", config.GOODREADS_RSS),
-                                    "hardcover_token": g("hardcover_token", config.HARDCOVER_TOKEN)},
+                           reading={"goodreads_rss": g("goodreads_rss", config.GOODREADS_RSS) if is_admin else "",
+                                    "hardcover_token": g("hardcover_token", config.HARDCOVER_TOKEN) if is_admin else ""},
                            hide_rated_history=db.get_pref(auth.current_user()["id"], "hide_rated_history", "0") == "1",
                            format_mode=formats.mode(),
                            cross_format_taste=db.get_pref(auth.current_user()["id"], "cross_format_taste", "0") == "1",
@@ -1207,7 +1231,7 @@ def settings_page():
                            manage_users=_manage_users_ctx() if auth.current_user()["role"] == "admin" else [],
                            notify_prefs=_notify_prefs_ctx(auth.current_user()),
                            smtp_ready=notify.smtp_ready(),
-                           is_admin=auth.current_user()["role"] == "admin")
+                           is_admin=is_admin)
 
 
 def _manage_users_ctx() -> list[dict]:
@@ -1601,11 +1625,19 @@ def api_rate():
         meta = audible.by_asin(asin) or {}
         title = title or meta.get("title", "")
         author = author or meta.get("author", "")
-    # Canonical rating key so writes and reads agree: a real ASIN when we have one,
-    # else the title+author slug. Most ABS library books (and ebooks) have NO ASIN —
-    # the old code rejected those outright, so star ratings on them never saved.
-    real_asin = asin if (asin and not asin.startswith(("t-", "gb:", "ol:"))) else ""
-    key = db.rating_key(real_asin, title, author)
+    # Canonical rating key so writes and reads agree. When the client sends a
+    # "t-…" slug it is ALREADY the exact key the read paths (History, onboarding,
+    # shelves) rendered from — trust it verbatim. Recomputing the slug here from
+    # title+author could produce a DIFFERENT key (e.g. an older row keyed without
+    # the author, or a title that normalises differently), so the write landed
+    # under a key History never reads back: it looked saved but the stars never
+    # stuck. For real ASINs the key is the ASIN; ebook ids (gb:/ol:) fall through
+    # to the title+author slug the ebook read paths use.
+    if asin.startswith("t-"):
+        key = asin
+    else:
+        real_asin = asin if (asin and not asin.startswith(("gb:", "ol:"))) else ""
+        key = db.rating_key(real_asin, title, author)
     if not key or key == "t-":
         return jsonify({"error": "need an asin or title + author"}), 400
     with db.conn() as c:

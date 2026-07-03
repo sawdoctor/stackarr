@@ -255,6 +255,7 @@ const Stackarr = (() => {
     },
     async rate(asin, stars, el) {
       const row = el.parentElement;   // .rate-stars / .media-stars
+      const prev = [...row.children].map(s => s.classList.contains("on"));   // so we can undo on failure
       [...row.children].forEach((s, i) => { s.classList.toggle("on", i < stars); s.classList.remove("preview", "pop"); });
       requestAnimationFrame(() => [...row.children].forEach((s, i) => { if (i < stars) s.classList.add("pop"); }));
       const item = el.closest(".rate-item");
@@ -266,7 +267,13 @@ const Stackarr = (() => {
       const author = row.dataset.author || (item && item.querySelector(".rate-author")?.textContent.trim());
       if (title) payload.title = title;
       if (author) payload.author = author;
-      await api("/api/rate", { method: "POST", body: JSON.stringify(payload) });
+      const res = await api("/api/rate", { method: "POST", body: JSON.stringify(payload) });
+      if (!res) return;                                        // 401 → api() already redirected
+      if (!res.ok) {                                           // surface the real failure instead of a fake success
+        [...row.children].forEach((s, i) => s.classList.toggle("on", prev[i]));
+        toast(res.error || "Couldn't save that rating — please try again.");
+        return;
+      }
       toast(`Rated ${stars}★ — your picks just got sharper.`);
       // History list: rate → remove (if "hide after rating" on) or sink to bottom.
       if (item) {
@@ -286,10 +293,12 @@ const Stackarr = (() => {
       const review = (document.getElementById("my-review-text")?.value || "").trim();
       if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
       const spoiler = !!(document.getElementById("my-review-spoiler") || {}).checked;
-      await api("/api/rate", { method: "POST", body: JSON.stringify({
+      const res = await api("/api/rate", { method: "POST", body: JSON.stringify({
         asin: sec.dataset.key, stars, review, spoiler,
         title: sec.dataset.title, author: sec.dataset.author, format: sec.dataset.format }) });
       if (btn) { btn.disabled = false; btn.textContent = "Save review"; }
+      if (!res) return;                                        // 401 → api() already redirected
+      if (!res.ok) { toast(res.error || "Couldn't save your review — please try again."); return; }
       toast("Review saved — thanks for sharing.");
     },
     async setShelf(state, btn) {
@@ -414,11 +423,45 @@ const Stackarr = (() => {
       if (r && r.ok) { toast("Password saved."); setTimeout(() => location.reload(), 500); }
       else if (r) toast(r.error || "Couldn't save password.");
     },
+    // ---- in-app modal (replaces native prompt(), which felt out of place) ----
+    // Resolves to an array of the field values (DOM order), or null if cancelled.
+    _openModal(title, bodyHtml, okLabel) {
+      const m = document.getElementById("modal");
+      if (!m) return Promise.resolve(null);
+      document.getElementById("modal-title").textContent = title;
+      document.getElementById("modal-body").innerHTML = bodyHtml;
+      const ok = m.querySelector(".modal-actions .btn:not(.ghost)");
+      if (ok) ok.textContent = okLabel || "Continue";
+      m.hidden = false;
+      const first = m.querySelector("input, textarea");
+      if (first) setTimeout(() => first.focus(), 30);
+      m._key = (e) => {
+        if (e.key === "Escape") { e.preventDefault(); this._modalCancel(); }
+        else if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") { e.preventDefault(); this._modalOk(); }
+      };
+      document.addEventListener("keydown", m._key);
+      return new Promise(resolve => { this._modalResolve = resolve; });
+    },
+    _closeModal(val) {
+      const m = document.getElementById("modal");
+      if (!m) return;
+      m.hidden = true;
+      if (m._key) { document.removeEventListener("keydown", m._key); m._key = null; }
+      const r = this._modalResolve; this._modalResolve = null;
+      if (r) r(val);
+    },
+    _modalOk() { this._closeModal([...document.querySelectorAll("#modal-body input, #modal-body textarea")].map(f => f.value)); },
+    _modalCancel() { this._closeModal(null); },
     async linkProvider(id, label, btn) {
-      const username = prompt("Your " + label + " username:");
-      if (username === null) return;
-      const password = prompt("Your " + label + " password:");
-      if (password === null) return;
+      const vals = await this._openModal("Sign in to " + label,
+        `<label class="modal-row"><span>Username</span>
+           <input id="lp-user" autocomplete="off" placeholder="Your ${esc(label)} username"></label>
+         <label class="modal-row"><span>Password</span>
+           <input id="lp-pass" type="password" autocomplete="off" placeholder="Your ${esc(label)} password"></label>`,
+        "Sign in");
+      if (!vals) return;                                       // cancelled
+      const username = (vals[0] || "").trim(), password = vals[1] || "";
+      if (!username || !password) { toast("Enter both a username and password."); return; }
       const r = await api("/api/account/link", { method: "POST", body: JSON.stringify({ provider: id, username, password }) });
       if (r && r.ok) { toast(label + " linked."); setTimeout(() => location.reload(), 500); }
       else if (r) toast(r.error || "Couldn't link.");
@@ -527,7 +570,12 @@ const Stackarr = (() => {
       else { toast(r.detail || "Approved, but the grab failed — see Wanted."); if (btn) btn.disabled = false; }
     },
     async denyRequest(id, btn) {
-      const reason = prompt("Reason (optional, shown to the requester):") || "";
+      const vals = await this._openModal("Deny request",
+        `<label class="modal-row"><span>Reason (optional, shown to the requester)</span>
+           <textarea id="dn-reason" rows="3" placeholder="e.g. already in the library"></textarea></label>`,
+        "Deny");
+      if (!vals) return;                                       // cancelled
+      const reason = vals[0] || "";
       if (btn) btn.disabled = true;
       const r = await api(`/api/requests/${id}/deny`, { method: "POST", body: JSON.stringify({ reason }) });
       if (!r) { if (btn) btn.disabled = false; return; }

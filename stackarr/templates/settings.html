@@ -134,6 +134,10 @@
           <button class="btn small" onclick="Stackarr.markRead(this)">Add</button>
         </div>
       </div>
+      {# Shared, instance-wide reading-list sources (a single Hardcover token /
+         Goodreads feed for the whole install) — admin-only, so a non-admin can't
+         read the operator's token. Writes are already @admin_required server-side. #}
+      {% if is_admin %}
       <div class="panel"><h3>Import your reading list</h3>
         <p class="muted">Pull your "Want to Read" shelf in as suggestions.</p>
         <label class="row"><span>Goodreads shelf RSS</span>
@@ -145,6 +149,7 @@
         <p class="muted">Hardcover → Settings → API → copy your token.</p>
         <button class="btn" onclick="Stackarr.saveCategory('reading', this)">Save</button>
       </div>
+      {% endif %}
     </div>
 
     {% if is_admin %}
