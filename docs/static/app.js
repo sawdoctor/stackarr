@@ -383,7 +383,8 @@ const Stackarr = (() => {
       if (!r.missing.length) { box.innerHTML = `<p class="muted">You have all ${r.total} books in this series. 🎉</p>`; return; }
       box.innerHTML = `<p class="muted">You have ${r.owned} of ${r.total} — missing ${r.missing.length}:</p>` +
         '<div class="missing-list">' + r.missing.map(m =>
-          `<a class="missing-item" href="${(window.URL_BASE||'')}/book/${m.asin}"><span class="missing-seq">#${m.seq}</span> ${m.title}</a>`
+          // catalogue metadata is third-party, so escape it before it hits innerHTML
+          `<a class="missing-item" href="${(window.URL_BASE||'')}/book/${encodeURIComponent(m.asin)}"><span class="missing-seq">#${esc(String(m.seq))}</span> ${esc(m.title)}</a>`
         ).join("") + "</div>";
     },
     async follow(btn) {

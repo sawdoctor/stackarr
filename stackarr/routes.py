@@ -766,6 +766,9 @@ def browse_page():
 def api_library_refresh():
     """Re-scan all connected libraries (ABS/Kavita/Calibre/Komga/OPDS) so newly
     added books + series show up. Used by the 'Check library' buttons."""
+    wait = _cooldown("library_refresh", 20)
+    if wait:
+        return jsonify({"ok": False, "detail": f"Just scanned — try again in {wait}s."}), 429
     from . import scheduler
     try:
         scheduler.refresh_library()
@@ -1179,43 +1182,48 @@ def api_author_add():
 def settings_page():
     g = db.setting
     is_admin = auth.current_user()["role"] == "admin"
+    # Instance-wide integration secrets (service creds, SMTP password, webhook
+    # URLs). These only ever render inside `{% if is_admin %}` blocks, but we ALSO
+    # withhold the values server-side so a single future ungated field can't dump
+    # the ABS admin token / SMTP password to a non-admin who curls /settings.
+    conn = {"abs_url": g("abs_url", config.ABS_URL),
+            "abs_admin_token": g("abs_admin_token", config.ABS_ADMIN_TOKEN),
+            "chaptarr_url": g("chaptarr_url", config.CHAPTARR_URL),
+            "chaptarr_api_key": g("chaptarr_api_key", config.CHAPTARR_API_KEY),
+            "chaptarr_root_folder": g("chaptarr_root_folder", config.CHAPTARR_ROOT_FOLDER),
+            "chaptarr_quality_profile_id": g("chaptarr_quality_profile_id", str(config.CHAPTARR_QUALITY_PROFILE_ID)),
+            "chaptarr_metadata_profile_id": g("chaptarr_metadata_profile_id", str(config.CHAPTARR_METADATA_PROFILE_ID)),
+            "chaptarr_webhook_token": db.get_meta("chaptarr_webhook_token") or _ensure_webhook_token(),
+            "public_url": db.get_meta("public_url", ""),
+            "kavita_url": g("kavita_url", config.KAVITA_URL),
+            "kavita_api_key": g("kavita_api_key", config.KAVITA_API_KEY),
+            "calibreweb_url": g("calibreweb_url", config.CALIBREWEB_URL),
+            "calibreweb_user": g("calibreweb_user", config.CALIBREWEB_USER),
+            "calibreweb_pass": g("calibreweb_pass", config.CALIBREWEB_PASS),
+            "komga_url": g("komga_url", config.KOMGA_URL),
+            "komga_user": g("komga_user", config.KOMGA_USER),
+            "komga_pass": g("komga_pass", config.KOMGA_PASS),
+            "opds_url": g("opds_url", config.OPDS_URL),
+            "opds_user": g("opds_user", config.OPDS_USER),
+            "opds_pass": g("opds_pass", config.OPDS_PASS)} if is_admin else {}
     return render_template("settings.html",
                            email_configured=notify.email_configured(),
                            email_enabled=db.get_meta("email_enabled", "0") == "1",
                            email_theme=notify.current_theme(),
                            email_frequency=db.get_meta("email_frequency", "immediate"),
                            discord_configured=bool(db.setting("discord_webhook", config.DISCORD_WEBHOOK)),
-                           discord_webhook=db.setting("discord_webhook", config.DISCORD_WEBHOOK),
+                           discord_webhook=db.setting("discord_webhook", config.DISCORD_WEBHOOK) if is_admin else "",
                            discord_enabled=db.get_meta("discord_enabled", "0") == "1",
                            notify_avail_enabled=db.get_meta("notify_avail_enabled", "0") == "1",
                            notify_newrelease_enabled=db.get_meta("notify_newrelease_enabled", "0") == "1",
-                           custom_webhook=db.setting("custom_webhook", ""),
+                           custom_webhook=db.setting("custom_webhook", "") if is_admin else "",
                            themes=list(notify.THEMES),
                            auto_add_level=db.get_meta("auto_add_level", "off"),
                            interval_hours=db.get_meta("suggest_interval_hours", str(config.SUGGEST_INTERVAL_HOURS)),
                            language=db.get_meta("language", config.TARGET_LANGUAGE),
                            languages=["english","german","spanish","french","italian","dutch","portuguese","japanese","any"],
-                           smtp=notify.smtp_settings(),
-                           conn={"abs_url": g("abs_url", config.ABS_URL),
-                                 "abs_admin_token": g("abs_admin_token", config.ABS_ADMIN_TOKEN),
-                                 "chaptarr_url": g("chaptarr_url", config.CHAPTARR_URL),
-                                 "chaptarr_api_key": g("chaptarr_api_key", config.CHAPTARR_API_KEY),
-                                 "chaptarr_root_folder": g("chaptarr_root_folder", config.CHAPTARR_ROOT_FOLDER),
-                                 "chaptarr_quality_profile_id": g("chaptarr_quality_profile_id", str(config.CHAPTARR_QUALITY_PROFILE_ID)),
-                                 "chaptarr_metadata_profile_id": g("chaptarr_metadata_profile_id", str(config.CHAPTARR_METADATA_PROFILE_ID)),
-                                 "chaptarr_webhook_token": db.get_meta("chaptarr_webhook_token") or _ensure_webhook_token(),
-                                 "public_url": db.get_meta("public_url", ""),
-                                 "kavita_url": g("kavita_url", config.KAVITA_URL),
-                                 "kavita_api_key": g("kavita_api_key", config.KAVITA_API_KEY),
-                                 "calibreweb_url": g("calibreweb_url", config.CALIBREWEB_URL),
-                                 "calibreweb_user": g("calibreweb_user", config.CALIBREWEB_USER),
-                                 "calibreweb_pass": g("calibreweb_pass", config.CALIBREWEB_PASS),
-                                 "komga_url": g("komga_url", config.KOMGA_URL),
-                                 "komga_user": g("komga_user", config.KOMGA_USER),
-                                 "komga_pass": g("komga_pass", config.KOMGA_PASS),
-                                 "opds_url": g("opds_url", config.OPDS_URL),
-                                 "opds_user": g("opds_user", config.OPDS_USER),
-                                 "opds_pass": g("opds_pass", config.OPDS_PASS)},
+                           smtp=notify.smtp_settings() if is_admin else {},
+                           conn=conn,
                            abs_ebooks=db.get_meta("abs_ebooks", "1" if config.ABS_EBOOKS else "0") == "1",
                            koreader_sync=db.get_meta("koreader_sync", "1" if config.KOREADER_SYNC else "0") == "1",
                            reading={"goodreads_rss": g("goodreads_rss", config.GOODREADS_RSS) if is_admin else "",
@@ -1449,6 +1457,24 @@ def _base_url() -> str:
         return db.get_meta("public_url", "") or request.host_url.rstrip("/")
     except Exception:
         return db.get_meta("public_url", "")
+
+
+# Lightweight in-process cooldown for the expensive endpoints (library re-scan,
+# recommender run). Keyed per user so one account can't hammer the shared
+# ABS/Chaptarr scans; in-memory is fine on single-process waitress.
+_LAST_HEAVY: dict = {}
+
+
+def _cooldown(action: str, seconds: int) -> int:
+    """0 if `action` is allowed now (and stamps it), else the seconds to wait."""
+    import time
+    u = auth.current_user()
+    key = (u["id"] if u else request.remote_addr, action)
+    now, last = time.time(), _LAST_HEAVY.get((u["id"] if u else request.remote_addr, action), 0)
+    if now - last < seconds:
+        return int(seconds - (now - last)) + 1
+    _LAST_HEAVY[key] = now
+    return 0
 
 
 def _queue_for_approval(user, item, source):
@@ -1842,6 +1868,9 @@ def api_requests_check():
     """Re-scan all connected libraries now and flip any request to 'available'
     if its book has appeared (e.g. the user added it outside Chaptarr). Returns
     how many flipped."""
+    wait = _cooldown("requests_check", 20)
+    if wait:
+        return jsonify({"ok": False, "detail": f"Just checked — try again in {wait}s."}), 429
     from . import scheduler
     u = auth.current_user()
     before = after = 0
@@ -2194,6 +2223,9 @@ def api_email_preview(theme):
 def api_run_now():
     """Manual history scan — kicks the recommender in the background so the
     loader animation can play, same as first login."""
+    wait = _cooldown("run_now", 30)
+    if wait:
+        return jsonify({"ok": False, "detail": f"A refresh just ran — try again in {wait}s.", "started": False}), 429
     import threading
     from . import scheduler
     u = auth.current_user()
@@ -2329,6 +2361,17 @@ def _kosync_on() -> bool:
     return db.get_meta("koreader_sync", "1" if config.KOREADER_SYNC else "0") == "1"
 
 
+def _kosync_key(user: str, doc: str) -> str:
+    """Storage key for a user's progress on a document. Both segments are hashed
+    to fixed-length hex so the user/doc boundary is unambiguous — the old
+    `kosync_{user}_{doc}` form could be made to collide with another kosync
+    account's row via a crafted `document` value. (Off-by-default feature; any
+    pre-existing progress simply re-syncs from the device on next open.)"""
+    import hashlib
+    h = lambda s: hashlib.sha1((s or "").encode("utf-8", "replace")).hexdigest()
+    return f"kosync_{h(user)}_{h(doc)}"
+
+
 def _kosync_check():
     """The kosync username when the x-auth-user/x-auth-key headers match a
     registered user, else None. KOReader sends the key as an md5 of the password,
@@ -2381,7 +2424,7 @@ def kosync_put():
     if not doc:
         return jsonify({"message": "Invalid request"}), 400
     import json as _json
-    db.set_meta(f"kosync_{user}_{doc}", _json.dumps({
+    db.set_meta(_kosync_key(user, doc), _json.dumps({
         "progress": b.get("progress", ""), "percentage": b.get("percentage", 0),
         "device": b.get("device", ""), "device_id": b.get("device_id", "")}))
     return jsonify({"document": doc, "timestamp": 0})
@@ -2395,7 +2438,7 @@ def kosync_get(doc):
     if not user:
         return jsonify({"message": "Unauthorized"}), 401
     import json as _json
-    raw = db.get_meta(f"kosync_{user}_{doc}", "")
+    raw = db.get_meta(_kosync_key(user, doc), "")
     if not raw:
         return jsonify({})
     d = _json.loads(raw)

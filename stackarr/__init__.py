@@ -73,13 +73,21 @@ def create_app() -> Flask:
 
     @app.before_request
     def _csrf_guard():
-        # CSRF: cookie-authed state changes must come from the same origin. The
-        # KOReader sync endpoints are header-authenticated (x-auth-key) and send
-        # no Origin, so they're naturally exempt; everything else is checked.
-        if request.method in ("POST", "PUT", "DELETE", "PATCH"):
-            origin = request.headers.get("Origin") or request.headers.get("Referer") or ""
-            if origin and urlparse(origin).netloc and urlparse(origin).netloc != request.host:
-                abort(403)
+        # CSRF: cookie-authenticated state changes must be same-origin. Requests
+        # authenticated by header (X-Api-Key / KOReader kosync x-auth-*) carry no
+        # session cookie, so they stay exempt — that's how automation isn't blocked.
+        if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
+            return
+        origin = request.headers.get("Origin") or request.headers.get("Referer") or ""
+        if origin:
+            if urlparse(origin).netloc and urlparse(origin).netloc != request.host:
+                abort(403)                      # cross-origin → reject
+        elif request.cookies.get(app.config.get("SESSION_COOKIE_NAME", "session")):
+            # No Origin AND no Referer on a cookie-authed mutation: fail closed
+            # rather than open. Real browsers always send one of the two same-origin
+            # (Referrer-Policy is same-origin, so Referer is present); only forged
+            # cross-site requests strip both.
+            abort(403)
 
     from .routes import bp
     app.register_blueprint(bp)

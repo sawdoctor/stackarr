@@ -2,6 +2,33 @@
 
 All notable changes to Stackarr.
 
+## [1.6.8] - 2026-07-04
+
+Security hardening from the same field report's attached findings doc (thanks
+Mr Hynesy) — all low-severity / defence-in-depth.
+
+### Security
+- **Settings secrets gated server-side.** `settings_page` now computes the
+  `conn` (service creds), `smtp`, and webhook-URL blocks only for admins, instead
+  of building them for every caller and relying on template `{% if is_admin %}`
+  guards alone — so one future ungated field can't leak the ABS admin token / SMTP
+  password to a non-admin.
+- **DOM-XSS sink closed.** The series "find missing books" list now escapes
+  catalogue titles and URL-encodes ASINs before they hit `innerHTML`.
+- **CSRF guard fails closed.** A cookie-authenticated mutating request with no
+  Origin *and* no Referer is now rejected instead of allowed (browsers always send
+  one same-origin; only forged cross-site requests strip both). Header-authenticated
+  automation (X-Api-Key / KOReader kosync) carries no session cookie and stays exempt.
+- **KOReader kosync key namespaced.** Progress is stored under a hashed
+  `kosync_<sha1(user)>_<sha1(doc)>` key so a crafted `document` value can't collide
+  with another kosync account's row (was `kosync_{user}_{doc}`, an ambiguous join).
+
+### Added
+- **Cooldown on expensive endpoints.** `/api/library/refresh`,
+  `/api/requests/check`, and `/api/run-now` are now per-user rate-limited (20–30s)
+  so they can't be hammered into a resource-abuse loop; they return 429 with a
+  friendly "try again in Ns" message.
+
 ## [1.6.7] - 2026-07-04
 
 Fixes from a user field report (thanks Mr Hynesy).
