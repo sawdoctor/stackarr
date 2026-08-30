@@ -69,6 +69,14 @@ ABS_EBOOKS = _bool("ABS_EBOOKS", False)
 # KOReader progress-sync (kosync) — Stackarr exposes a /kosync endpoint.
 KOREADER_SYNC = _bool("KOREADER_SYNC", False)
 
+# --- Shelfmark ebook handoff -------------------------------------------------
+# This branch deliberately sends ONLY ebook requests to a separate Shelfmark.
+# AudiobookRequest / abr-shelfmark-bridge / shelfmark-torbox are untouched.
+SHELFMARK_EBOOK_URL = os.environ.get("SHELFMARK_EBOOK_URL", "").rstrip("/")
+SHELFMARK_EBOOK_USERNAME = os.environ.get("SHELFMARK_EBOOK_USERNAME", "")
+SHELFMARK_EBOOK_PASSWORD = os.environ.get("SHELFMARK_EBOOK_PASSWORD", "")
+SHELFMARK_EBOOK_SOURCE = os.environ.get("SHELFMARK_EBOOK_SOURCE", "prowlarr").strip().lower()
+
 # --- Chaptarr (downstream: approved picks are handed here to grab) -----------
 CHAPTARR_URL = os.environ.get("CHAPTARR_URL", "").rstrip("/")
 CHAPTARR_API_KEY = os.environ.get("CHAPTARR_API_KEY", "")
@@ -142,6 +150,8 @@ def validate() -> list[str]:
     problems = []
     if not ABS_URL or not ABS_ADMIN_TOKEN:
         problems.append("ABS_URL and ABS_ADMIN_TOKEN are required")
-    if not CHAPTARR_URL or not CHAPTARR_API_KEY:
-        problems.append("CHAPTARR_URL and CHAPTARR_API_KEY are required (Stackarr hands approved picks to Chaptarr)")
+    if FORMATS in ("ebook", "both") and not SHELFMARK_EBOOK_URL:
+        problems.append(
+            "SHELFMARK_EBOOK_URL is required when Stackarr ebook support is enabled"
+        )
     return problems

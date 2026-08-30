@@ -7,7 +7,7 @@ from flask import (Blueprint, jsonify, redirect, render_template, request,
                    session, url_for)
 
 from . import (absclient, audible, audnexus, auth, chaptarr, config, db,
-               discover, ebookmeta, formats, notify, recommend, tagging)
+               discover, ebookmeta, formats, notify, recommend, shelfmark, tagging)
 
 log = logging.getLogger("stackarr.routes")
 bp = Blueprint("main", __name__)
@@ -875,36 +875,11 @@ def api_series_repair():
 @bp.route("/api/series/add", methods=["POST"])
 @auth.login_required
 def api_series_add():
-    """Get the rest of a series: hand its author to Chaptarr, which monitors and
-    searches all their books (covering the remaining entries in the series)."""
-    u = auth.current_user()
-    body = request.get_json(force=True)
-    name = (body.get("series") or "").strip()
-    author = (body.get("author") or "").split(",")[0].strip()
-    fmt = body.get("format") or "audiobook"
-    if not name or not author:
-        return jsonify({"ok": False, "detail": "Series needs an author Stackarr can look up."}), 400
-    # non-admins (non-trusted) can't bulk-grab a whole series past the approval gate
-    if _needs_approval(u):
-        return jsonify(_queue_for_approval(u, {"title": name, "author": author, "format": fmt}, "series"))
-    fmts = ["audiobook", "ebook"] if fmt == "both" else [fmt]
-    results = {f: chaptarr.add_and_search(name, author, fmt=f) for f in fmts}
-    # one request row per format so a partial success (e.g. audiobook ok, ebook
-    # fail) isn't overwritten and hidden by the last iteration's result.
-    with db.conn() as c:
-        for f in fmts:
-            rf = results[f]
-            c.execute("INSERT INTO requests (user_id,title,author,status,detail,source,format) VALUES (?,?,?,?,?,?,?)",
-                      (u["id"], f"Full series: {name}", author,
-                       "handed" if rf.get("ok") else "failed", rf.get("detail", ""), "series", f))
-    oks = [f for f in fmts if results[f].get("ok")]
-    if fmt == "both":
-        res = {"ok": bool(oks),
-               "detail": (f"Sent “{name}” to Chaptarr as {' + '.join(oks)}." if oks
-                          else results[fmts[-1]].get("detail", "Couldn't add this series right now."))}
-    else:
-        res = results[fmts[0]]
-    return jsonify(res)
+    """Bulk series acquisition is disabled during the controlled ebook migration."""
+    return jsonify({
+        "ok": False,
+        "detail": "Whole-series acquisition is disabled. Request one specific ebook at a time."
+    }), 400
 
 
 def _shelves_data(u):
@@ -1163,18 +1138,11 @@ def narrator_page(name):
 @bp.route("/api/author/add", methods=["POST"])
 @auth.login_required
 def api_author_add():
-    u = auth.current_user()
-    author = request.get_json(force=True).get("author", "").strip()
-    if not author:
-        return jsonify({"error": "author required"}), 400
-    if _needs_approval(u):
-        return jsonify(_queue_for_approval(u, {"title": f"All books by {author}", "author": author}, "author"))
-    res = chaptarr.add_and_search(author, author)
-    with db.conn() as c:
-        c.execute("INSERT INTO requests (user_id,title,author,status,detail,source) VALUES (?,?,?,?,?,?)",
-                  (u["id"], f"All books by {author}", author,
-                   "handed" if res["ok"] else "failed", res.get("detail", ""), "manual"))
-    return jsonify(res)
+    """Bulk author acquisition is disabled during the controlled ebook migration."""
+    return jsonify({
+        "ok": False,
+        "detail": "All-books-by-author acquisition is disabled. Request one specific ebook at a time."
+    }), 400
 
 
 @bp.route("/settings")
@@ -1494,9 +1462,45 @@ def _queue_for_approval(user, item, source):
     return {"ok": True, "pending": True, "detail": "Request sent — an admin will approve it shortly."}
 
 
-def _hand_to_chaptarr(user_id, book, source):
-    fmt = book.get("format") or "audiobook"
+def _acquisition_handoff(title, author, asin="", fmt="audiobook"):
+    """Single acquisition dispatcher for the controlled migration.
+
+    Ebooks go to the separate ebook Shelfmark.
+    Audiobooks through Stackarr remain disabled until the ebook route is proven.
+    """
+    fmt = (fmt or "").strip().lower()
+
+    if fmt == "ebook":
+        return shelfmark.add_and_search(
+            title,
+            author,
+            asin,
+            fmt="ebook",
+        )
+
+    return {
+        "ok": False,
+        "detail": (
+            "Audiobook requests through Stackarr are deliberately disabled "
+            "until the ebook Shelfmark route works end-to-end. "
+            "Use the existing AudiobookRequest system for audiobooks."
+        ),
+    }
+
+
+def _hand_off_request(user_id, book, source):
+    fmt = (book.get("format") or "audiobook").strip().lower()
     user = db.get_user(user_id)
+
+    # During the ebook-first migration, Stackarr must not touch the existing
+    # audiobook acquisition system at all.
+    if fmt != "ebook":
+        return _acquisition_handoff(
+            book.get("title", ""),
+            book.get("author", ""),
+            book.get("asin", ""),
+            fmt=fmt,
+        )
     # Hold non-admin, non-trusted requests for approval instead of grabbing.
     if _needs_approval(user):
         return _queue_for_approval(user, book, source)
@@ -1510,7 +1514,12 @@ def _hand_to_chaptarr(user_id, book, source):
                       (user_id, book.get("asin", ""), book["title"], book.get("author", ""),
                        book.get("cover", ""), "available", "Already in your library", source, fmt))
             return {"ok": True, "detail": "Already in your library — marked available."}
-    res = chaptarr.add_and_search(book["title"], book.get("author", ""), book.get("asin", ""), fmt=fmt)
+    res = _acquisition_handoff(
+        book["title"],
+        book.get("author", ""),
+        book.get("asin", ""),
+        fmt=fmt,
+    )
     status = "handed" if res["ok"] else "failed"
     with db.conn() as c:
         c.execute("INSERT INTO requests (user_id,asin,title,author,cover,status,detail,chaptarr_ref,source,format) "
@@ -1527,7 +1536,7 @@ def api_request():
     book = request.get_json(force=True)
     if not book.get("title"):
         return jsonify({"error": "title required"}), 400
-    return jsonify(_hand_to_chaptarr(u["id"], book, "manual"))
+    return jsonify(_hand_off_request(u["id"], book, "manual"))
 
 
 @bp.route("/api/suggestion/<int:sid>/<verdict>", methods=["POST"])
@@ -1565,7 +1574,7 @@ def api_suggestion(sid, verdict):
             c.execute("INSERT OR IGNORE INTO signals (user_id,kind,value,weight,why) VALUES (?,?,?,?,?)",
                       (u["id"], "asin", sig_val, -1, f"already read: {row['title']}"))
     if verdict == "approve":
-        res = _hand_to_chaptarr(u["id"], row, "suggestion")
+        res = _hand_off_request(u["id"], row, "suggestion")
         # consume the suggestion ONLY on a real handoff — not when it was merely
         # queued for admin approval (ok:True, pending:True); else a later denial
         # leaves the pick 'approved' and it silently vanishes from the user's lane.
@@ -1766,7 +1775,7 @@ def api_requests_status():
     with db.conn() as c:
         rows = [dict(r) for r in c.execute(
             "SELECT id,title,status FROM requests WHERE user_id=? AND status IN ('queued','handed')", (u["id"],))]
-    live = chaptarr.queue_status() if rows else {}
+    live = shelfmark.queue_status() if rows else {}
     out = {}
     for r in rows:
         t = (r["title"] or "").lower().strip()
@@ -1819,7 +1828,15 @@ def api_request_approve(rid):
     # a 'both' request must hand off BOTH formats — chaptarr maps 'both'→audiobook,
     # so the approval path silently dropped the ebook half (the direct path splits).
     fmts = ["audiobook", "ebook"] if book["format"] == "both" else [book["format"]]
-    rmap = {f: chaptarr.add_and_search(book["title"], book["author"], book["asin"], fmt=f) for f in fmts}
+    rmap = {
+        f: _acquisition_handoff(
+            book["title"],
+            book["author"],
+            book["asin"],
+            fmt=f,
+        )
+        for f in fmts
+    }
     ok_any = any(r.get("ok") for r in rmap.values())
     oks = [f for f in fmts if rmap[f].get("ok")]
     res = (rmap[fmts[0]] if len(fmts) == 1
@@ -1901,11 +1918,11 @@ def api_retry_all():
     for row in rows:
         with db.conn() as c:
             c.execute("DELETE FROM requests WHERE id=?", (row["id"],))
-        res = _hand_to_chaptarr(u["id"], row, row.get("source", "manual"))
+        res = _hand_off_request(u["id"], row, row.get("source", "manual"))
         if res.get("ok"):
             ok += 1
     return jsonify({"ok": True, "retried": len(rows), "succeeded": ok,
-                    "detail": f"Retried {len(rows)} — {ok} sent to Chaptarr" if rows else "Nothing to retry"})
+                    "detail": f"Retried {len(rows)} — {ok} handed off" if rows else "Nothing to retry"})
 
 
 @bp.route("/api/request/<int:rid>/retry", methods=["POST"])
@@ -1927,7 +1944,7 @@ def api_retry(rid):
     # approval (unless the requester is admin), never straight to a grab.
     if was_denied and u["role"] != "admin":
         return jsonify(_queue_for_approval(u, row, row.get("source", "manual")))
-    return jsonify(_hand_to_chaptarr(u["id"], row, row["source"]))
+    return jsonify(_hand_off_request(u["id"], row, row["source"]))
 
 
 @bp.route("/api/request/<int:rid>", methods=["DELETE"])
@@ -2044,7 +2061,7 @@ def api_get_other_format():
     pick = hit[0] if hit else {"title": title, "author": author}
     pick["format"] = other
     pick["asin"] = pick.get("asin") or pick.get("id", "")
-    return jsonify(_hand_to_chaptarr(u["id"], pick, "manual"))
+    return jsonify(_hand_off_request(u["id"], pick, "manual"))
 
 
 @bp.route("/api/surprise")
