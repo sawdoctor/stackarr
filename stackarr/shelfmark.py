@@ -232,13 +232,15 @@ def _choose_release(
 def _search_once(
     session: requests.Session, title: str, author: str
 ) -> list[dict[str, Any]]:
+    # Use Shelfmark's manual metadata context and explicitly target Prowlarr.
+    # manual_query forces exactly one raw search variant.
     params = {
-        # Shelfmark's manual release-search mode is selected by source + query.
-        # Do NOT send provider="manual": "manual" is the resulting internal
-        # provider identity, not a metadata-provider name to resolve.
+        "provider": "manual",
+        "book_id": f"stackarr:{title.strip()}",
         "source": source(),
-        "query": title,
+        "title": title,
         "author": author,
+        "manual_query": title,
         "content_type": "ebook",
         "expand_search": "false",
     }
