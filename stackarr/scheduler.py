@@ -198,55 +198,12 @@ AUTO_TIERS = {
 
 
 def auto_approve(user_id: int) -> int:
-    """Optionally hand high-confidence pending picks to Chaptarr automatically.
-    Off by default; tier decides which lanes qualify and the per-cycle cap.
-    Records a request + marks approved only on a successful handoff — on
-    failure (e.g. Chaptarr's metadata backend down) it leaves the suggestion
-    pending and stops, so nothing piles up during an outage."""
-    from . import chaptarr
-    tier = AUTO_TIERS.get(db.get_meta("auto_add_level", "off"))
-    if not tier or not chaptarr.configured():
-        return 0
-    lanes, cap = tier
-    from .routes import _owned          # deferred: avoid import cycle at load
-    with db.conn() as c:
-        rows = [dict(r) for r in c.execute(
-            "SELECT * FROM suggestions WHERE user_id=? AND status='pending' ORDER BY score DESC",
-            (user_id,))]
-    added = 0
-    for r in rows:
-        if added >= cap:
-            break
-        if r["lane"] == "upcoming":               # never auto-add unreleased titles
-            continue
-        if lanes is not None and r["lane"] not in lanes:
-            continue
-        fmt = r.get("format") or "audiobook"
-        with db.conn() as c:
-            if _owned(c, r["asin"], r["title"], r["author"], fmt=fmt):
-                c.execute("UPDATE suggestions SET status='approved' WHERE id=?", (r["id"],))
-                continue
-        res = chaptarr.add_and_search(r["title"], r.get("author", ""), r.get("asin", ""), fmt=fmt)
-        if not res.get("ok"):
-            if res.get("retry"):       # true outage/rate-limit → stop the cycle, nothing piles up
-                log.info("auto-add paused: Chaptarr unavailable (%s)", res.get("detail", ""))
-                break
-            log.info("auto-add skip (%s): %s", res.get("detail", ""), r["title"])
-            continue                    # per-item catalogue miss → skip it, keep going
+    """Automatic acquisition is disabled on the controlled ebook branch.
 
-        with db.conn() as c:
-            c.execute("INSERT INTO requests (user_id,asin,title,author,cover,status,detail,chaptarr_ref,source,format) "
-                      "VALUES (?,?,?,?,?,?,?,?,?,?)",
-                      (user_id, r.get("asin", ""), r["title"], r.get("author", ""),
-                       r.get("cover", ""), "handed", res.get("detail", ""), res.get("ref", ""), "auto", fmt))
-            c.execute("UPDATE suggestions SET status='approved',decided_at=datetime('now','localtime') WHERE id=?",
-                      (r["id"],))
-        added += 1
-        log.info("auto-added [%s]: %s — %s", db.get_meta("auto_add_level", "off"), r["title"], r.get("author", ""))
-    if added:
-        log.info("auto-approve added %d pick(s) for user %s", added, user_id)
-    return added
-
+    Suggestions/recommendations may still be generated, but every ebook
+    acquisition must originate from one explicit user request or approval.
+    """
+    return 0
 
 def suggestion_cycle():
     with db.conn() as c:
