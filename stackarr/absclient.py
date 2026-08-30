@@ -37,15 +37,26 @@ def login(username: str, password: str) -> dict | None:
     """Authenticate against Audiobookshelf. Returns {id, username, token,
     isAdmin} on success, None on bad credentials."""
     try:
-        r = requests.post(f"{abs_url()}/login",
-                          json={"username": username, "password": password}, timeout=20)
+        r = requests.post(
+            f"{abs_url()}/login",
+            json={"username": username, "password": password},
+            headers={"x-return-tokens": "true"},
+            timeout=20,
+        )
         if r.status_code != 200:
             return None
+
         u = r.json().get("user") or {}
-        if not u.get("token"):
+        token = u.get("accessToken") or u.get("token")
+        if not token:
             return None
-        return {"id": u.get("id", ""), "username": u.get("username", username),
-                "token": u["token"], "isAdmin": u.get("type") in ("admin", "root")}
+
+        return {
+            "id": u.get("id", ""),
+            "username": u.get("username", username),
+            "token": token,
+            "isAdmin": u.get("type") in ("admin", "root"),
+        }
     except Exception as e:
         log.warning("ABS login failed for %s: %s", username, e)
         return None
