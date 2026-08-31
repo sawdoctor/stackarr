@@ -1504,6 +1504,39 @@ def _hand_off_request(user_id, book, source):
     # Hold non-admin, non-trusted requests for approval instead of grabbing.
     if _needs_approval(user):
         return _queue_for_approval(user, book, source)
+
+    # Do not search again when this exact ebook has already been successfully
+    # handed off, queued, or marked available anywhere in Stackarr.
+    def _request_key(value):
+        return "".join(
+            ch for ch in (value or "").casefold()
+            if ch.isalnum()
+        )
+
+    wanted_title = _request_key(book.get("title", ""))
+    wanted_author = _request_key(book.get("author", ""))
+
+    with db.conn() as c:
+        previous = c.execute(
+            "SELECT user_id,title,author,status "
+            "FROM requests "
+            "WHERE format=? AND status IN ('handed','queued','available')",
+            (fmt,),
+        ).fetchall()
+
+        for row in previous:
+            if _request_key(row["title"]) != wanted_title:
+                continue
+
+            stored_author = _request_key(row["author"])
+            if wanted_author and stored_author and stored_author != wanted_author:
+                continue
+
+            return {
+                "ok": True,
+                "detail": "Already requested — no new search performed.",
+            }
+
     # Bypass Chaptarr if the book is already in a connected library (the user may
     # have added it straight to Audiobookshelf / Kavita / Calibre-Web). Record it
     # as available rather than redundantly asking Chaptarr to grab it.
