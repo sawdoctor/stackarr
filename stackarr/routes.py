@@ -157,7 +157,9 @@ def home_page():
             "SELECT id,title,author,cover,reason,format,asin,extra FROM suggestions "
             "WHERE user_id=? AND lane='upcoming' AND status='pending' ORDER BY extra LIMIT 6", (u["id"],))]  # ASC: soonest first (match Upcoming page)
         want_n = c.execute("SELECT COUNT(*) n FROM shelf WHERE user_id=? AND state='want'", (u["id"],)).fetchone()["n"]
-        avail_n = c.execute("SELECT COUNT(*) n FROM requests WHERE user_id=? AND status='available'", (u["id"],)).fetchone()["n"]
+        library_n = c.execute(
+            "SELECT COUNT(*) n FROM library WHERE gone_at IS NULL"
+        ).fetchone()["n"]
     year = datetime.date.today().year
     read_year = sum(1 for d in _finish_dates_all(u) if d.startswith(str(year)))
     try:
@@ -165,7 +167,7 @@ def home_page():
     except ValueError:
         goal = 0
     return render_template("home.html", fresh=fresh, upcoming=upcoming,
-                           goal=goal, read_year=read_year, year=year, want_n=want_n, avail_n=avail_n,
+                           goal=goal, read_year=read_year, year=year, want_n=want_n, library_n=library_n,
                            shelves=shelves, counts=counts)
 
 
@@ -233,6 +235,25 @@ def lane_grid(lane):
         for r in rows:
             r["available"] = _owned(c, r["asin"], r["title"], r["author"])
     return render_template("lane.html", rows=rows, lane=lane, title=titles.get(lane, lane))
+
+
+@bp.route("/library")
+@auth.login_required
+def library_page():
+    """Shared server-wide library: ABS audiobooks + Kavita ebooks.
+
+    Availability belongs to the Stackarr installation, not to an individual
+    user's provider account, so every logged-in user sees the same inventory.
+    """
+    with db.conn() as c:
+        books = [dict(r) for r in c.execute("""
+            SELECT item_id, title, author, asin, series, format, source
+            FROM library
+            WHERE gone_at IS NULL
+            ORDER BY lower(title), lower(author), format
+        """)]
+
+    return render_template("library.html", books=books)
 
 
 @bp.route("/discover")

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "_fmt.html" import fmt_filter, fmt_badge with context %}
+
+{% block content %}
+<div class="page-head">
+  <h2 class="page-title">
+    Library
+    <span class="subtle">{{ books|length }} available</span>
+  </h2>
+  {{ fmt_filter() }}
+</div>
+
+{% if books %}
+<div class="grid fmt-group">
+  {% for b in books %}
+  <div class="media-card" data-format="{{ b.format or 'audiobook' }}">
+    <div class="media-poster">
+      {% if b.source == 'abs' %}
+      <img
+        src="{{ url_for('main.cover', item_id=b.item_id) }}"
+        loading="lazy"
+        alt=""
+        onerror="this.onerror=null;this.src='{{ url_for('static', filename='cover-placeholder.svg') }}'">
+      {% else %}
+      <img
+        src="{{ url_for('main.coverart', title=b.title, author=b.author, asin=b.asin or '', fmt=b.format or '') }}"
+        loading="lazy"
+        alt=""
+        onerror="this.onerror=null;this.src='{{ url_for('static', filename='cover-placeholder.svg') }}'">
+      {% endif %}
+      {{ fmt_badge(b.format) }}
+    </div>
+
+    <div class="media-foot">
+      <div class="media-title" title="{{ b.title }}">{{ b.title }}</div>
+      <div class="media-author">{{ b.author or 'Unknown author' }}</div>
+      {% if b.series %}
+      <div class="subtle">{{ b.series }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+  <p>No books have been indexed from the connected libraries yet.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{# Library deliberately opens on All instead of inheriting another page's saved filter. #}
+{% endblock %}

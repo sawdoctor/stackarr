@@ -28,7 +28,7 @@
     </div>
   </div>
   <a class="home-stat" href="#shelf-want"><div class="home-stat-num">{{ counts.get('want',0) }}</div><div class="muted">want to read</div></a>
-  <a class="home-stat" href="{{ url_for('main.requests_page') }}"><div class="home-stat-num">{{ avail_n }}</div><div class="muted">ready in library</div></a>
+  <a class="home-stat" href="{{ url_for('main.library_page') }}"><div class="home-stat-num">{{ library_n }}</div><div class="muted">books in library</div></a>
 </div>
 
 {% if fresh %}

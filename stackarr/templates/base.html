@@ -25,6 +25,8 @@
     <svg viewBox="0 0 24 24"><path d="M3 6h11v2H3zm0 5h11v2H3zm0 5h7v2H3zM16 7l6 4-6 4z"/></svg><span>Up Next</span></a>
   <a href="{{ url_for('main.requests_page') }}" class="navlink {{ 'active' if request.path.endswith('/requests') }}" title="Requests">
     <svg viewBox="0 0 24 24"><path d="M11 3h2v8h3l-4 4-4-4h3zM4 18h16v2H4z"/></svg><span>Requests</span></a>
+  <a href="{{ url_for('main.library_page') }}" class="navlink {{ 'active' if request.path.endswith('/library') }}" title="Library">
+    <svg viewBox="0 0 24 24"><path d="M3 4.5A2.5 2.5 0 0 1 5.5 2H11v18.2l-.9-.5a4 4 0 0 0-1.9-.5H3zM13 2h5.5A2.5 2.5 0 0 1 21 4.5v14.7h-5.2a4 4 0 0 0-1.9.5l-.9.5z"/></svg><span>Library</span></a>
   <a href="{{ url_for('main.discover_page') }}" class="navlink {{ 'active' if request.path.endswith('/discover') }}" title="Discover">
     <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.2 5.8-2.3 5.9-5.9 2.3 2.3-5.9zM12 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg><span>Discover</span></a>
   <a href="{{ url_for('main.history_page') }}" class="navlink {{ 'active' if request.path.endswith('/history') or request.path.endswith('/taste') }}" title="History &amp; ratings">
