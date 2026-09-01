@@ -315,7 +315,7 @@ def _hardcover_shelf(token: str, status_id: int) -> list[dict]:
     if not token:
         return []
     q = {"query": "{ me { user_books(where: {status_id: {_eq: %d}}) "
-                  "{ book { title isbns contributions { author { name } } } } } }" % status_id}
+                  "{ book { title contributions { author { name } } } } } }" % status_id}
     try:
         r = requests.post("https://api.hardcover.app/v1/graphql",
                           headers={"Authorization": token if token.lower().startswith("bearer ") else f"Bearer {token}",

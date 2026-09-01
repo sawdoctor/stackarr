@@ -340,6 +340,33 @@ def _download_release(
     return ""
 
 
+
+def _fallback_search_title(title: str) -> str:
+    """Return one conservative alternate acquisition title.
+
+    Hardcover sometimes uses a canonical alternate-title form such as:
+      "The Hobbit, or There and Back Again"
+
+    Usenet releases overwhelmingly use just:
+      "The Hobbit"
+
+    Only collapse the explicit ", or ..." form. Do not generally strip
+    subtitles or weaken release matching.
+    """
+    title = (title or "").strip()
+    lower = title.lower()
+    pos = lower.find(", or ")
+
+    if pos <= 0:
+        return ""
+
+    short = title[:pos].strip(" ,:;-")
+    if len(_norm(short).split()) < 2:
+        return ""
+
+    return short
+
+
 def add_and_search(
     title: str,
     author: str,
@@ -367,18 +394,46 @@ def add_and_search(
 
     try:
         session = _session()
-        releases = _search_once(session, title, author)
-        chosen, candidate_count = _choose_release(releases, title, author)
+
+        search_titles = [title]
+        fallback_title = _fallback_search_title(title)
+
+        if fallback_title and _norm(fallback_title) != _norm(title):
+            search_titles.append(fallback_title)
+
+        chosen = None
+        candidate_count = 0
+        searches = []
+
+        for search_title in search_titles:
+            releases = _search_once(session, search_title, author)
+            chosen, candidate_count = _choose_release(
+                releases, search_title, author
+            )
+            searches.append((search_title, len(releases), candidate_count))
+
+            if chosen is not None:
+                break
 
         if chosen is None:
-            return {
-                "ok": False,
-                "detail": (
-                    f"Shelfmark searched once and found {len(releases)} release(s), "
+            if len(searches) > 1:
+                summary = "; ".join(
+                    f"{q!r}: {count} release(s)"
+                    for q, count, _ in searches
+                )
+                detail = (
+                    "Shelfmark tried the canonical title and one conservative "
+                    f"alternate-title search ({summary}), but none passed the "
+                    "safe single-book NZB EPUB/PDF checks. Nothing was queued."
+                )
+            else:
+                detail = (
+                    f"Shelfmark searched once and found {searches[0][1]} release(s), "
                     "but none passed the safe single-book NZB EPUB/PDF checks. "
                     "Nothing was queued."
-                ),
-            }
+                )
+
+            return {"ok": False, "detail": detail}
 
         ref = _download_release(session, chosen, title, author)
         picked = str(chosen.get("title") or title)
