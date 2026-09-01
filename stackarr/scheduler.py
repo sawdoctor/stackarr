@@ -100,18 +100,45 @@ def refresh_library():
 
         # requests -> available when their book shows up
         newly_available = []
+
+        import re
+
+        def title_match(request_title, library_title):
+            req = re.sub(r"\s+", " ", (request_title or "").strip().lower())
+            lib = re.sub(r"\s+", " ", (library_title or "").strip().lower())
+            if len(req) < 4 or not lib:
+                return False
+            if req == lib:
+                return True
+            return lib.startswith(req + " (") or lib.startswith(req + " [")
+
+        def author_match(request_author, library_author):
+            req = re.sub(r"[^a-z0-9]", "", (request_author or "").split(",")[0].lower())
+            lib = re.sub(r"[^a-z0-9]", "", (library_author or "").split(",")[0].lower())
+            return bool(req and lib and (req in lib or lib in req))
+
         for r in c.execute("SELECT id,user_id,title,author,cover,format FROM requests WHERE status IN ('queued','handed','failed')"):
-            title = (r['title'] or '').strip().lower()
-            if len(title) < 4:           # too short to match safely (e.g. "It")
-                continue
-            # match the same FORMAT so an audiobook arrival doesn't satisfy an
-            # ebook request (and vice-versa)
-            hit = c.execute("SELECT 1 FROM library WHERE gone_at IS NULL AND lower(title) LIKE ? "
-                            "AND (?='' OR lower(author) LIKE ?) AND format=?",
-                            (f"%{title[:40]}%",
-                             (r['author'] or '').split(',')[0].lower(),
-                             f"%{(r['author'] or '').split(',')[0].lower()}%",
-                             r['format'] or 'audiobook')).fetchone()
+            candidates = c.execute(
+                "SELECT title,author,source FROM library "
+                "WHERE gone_at IS NULL AND format=?",
+                (r["format"] or "audiobook",)
+            ).fetchall()
+
+            hit = False
+            for item in candidates:
+                if not title_match(r["title"], item["title"]):
+                    continue
+
+                if author_match(r["author"], item["author"]):
+                    hit = True
+                    break
+
+                # Kavita's current series feed contains no author field.
+                # Only permit title-only matching for that known case.
+                if (item["source"] or "").lower() == "kavita" and not (item["author"] or "").strip():
+                    hit = True
+                    break
+
             if hit:
                 c.execute("UPDATE requests SET status='available',updated_at=datetime('now','localtime') WHERE id=?", (r["id"],))
                 newly_available.append(dict(r))

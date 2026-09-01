@@ -117,8 +117,11 @@ def _gb_normalize(item: dict) -> dict:
     }
 
 
-def gb_search(query: str, num: int = 12) -> list[dict]:
-    return [_gb_normalize(i) for i in _gb_get({"q": query, "maxResults": min(num, 40)})
+def gb_search(query: str, num: int = 12, offset: int = 0) -> list[dict]:
+    params = {"q": query, "maxResults": min(num, 40)}
+    if offset:
+        params["startIndex"] = max(0, int(offset))
+    return [_gb_normalize(i) for i in _gb_get(params)
             if (i.get("volumeInfo") or {}).get("title")]
 
 
@@ -172,8 +175,11 @@ def _ol_get(params: dict) -> list[dict]:
     return (data or {}).get("docs", []) or []
 
 
-def ol_search(query: str, num: int = 12) -> list[dict]:
-    return [_ol_normalize(d) for d in _ol_get({"q": query, "limit": min(num, 40)})
+def ol_search(query: str, num: int = 12, offset: int = 0) -> list[dict]:
+    params = {"q": query, "limit": min(num, 40)}
+    if offset:
+        params["offset"] = max(0, int(offset))
+    return [_ol_normalize(d) for d in _ol_get(params)
             if d.get("title")]
 
 
@@ -230,6 +236,17 @@ def search(query: str, num: int = 12) -> list[dict]:
     books = gb_search(query, num)
     if len(books) < num:
         books += ol_search(query, num - len(books))
+    return _dedup(books)[:num]
+
+
+def search_paged(query: str, num: int = 24, offset: int = 0) -> list[dict]:
+    """Paged catalogue search for endless-scroll discovery.
+
+    Fetch the same offset from both catalogues, then deduplicate.  This is kept
+    separate from search() so normal title search behaviour does not change.
+    """
+    books = gb_search(query, num, offset=offset)
+    books += ol_search(query, num, offset=offset)
     return _dedup(books)[:num]
 
 

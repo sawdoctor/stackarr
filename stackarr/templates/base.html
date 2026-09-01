@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="{{ app_name }}">
 <meta name="theme-color" content="#0b1120">
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='20260831-ebook-discover-2') }}">
 <style>:root { --accent: {{ accent }}; }</style>
 </head>
 <body>
@@ -68,7 +68,7 @@
 </div>
 <div id="toast"></div>
 <script>window.URL_BASE="{{ url_base }}";</script>
-<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="{{ url_for('static', filename='app.js', v='20260831-ebook-discover-2') }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

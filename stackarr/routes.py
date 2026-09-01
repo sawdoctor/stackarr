@@ -1235,23 +1235,57 @@ def _account_ctx(u: dict) -> dict:
 
 
 # ------------------------------------------------------------------- api ---
+def _library_title_match(request_title, library_title) -> bool:
+    """Conservative title match, allowing an edition suffix such as
+    'The War of the Worlds (Illustrated)'."""
+    import re
+    req = re.sub(r"\s+", " ", (request_title or "").strip().lower())
+    lib = re.sub(r"\s+", " ", (library_title or "").strip().lower())
+    if len(req) < 4 or not lib:
+        return False
+    if req == lib:
+        return True
+    return lib.startswith(req + " (") or lib.startswith(req + " [")
+
+
+def _library_author_match(request_author, library_author) -> bool:
+    """Compare author names while ignoring punctuation/spaces in initials."""
+    import re
+    req = re.sub(r"[^a-z0-9]", "", (request_author or "").split(",")[0].lower())
+    lib = re.sub(r"[^a-z0-9]", "", (library_author or "").split(",")[0].lower())
+    return bool(req and lib and (req in lib or lib in req))
+
+
 def _owned(c, asin, title, author, fmt=None) -> bool:
-    """True only if the book is really in the library — ASIN match, or exact
-    title AND author match. Title-only matching gives false positives on
-    common one-word titles (e.g. 'Emergence'). When `fmt` is given, the match is
-    restricted to that format, so owning the audiobook doesn't count as owning
-    the ebook (and the other format can still be grabbed)."""
+    """True only if the requested format is genuinely present.
+
+    Prefer ASIN. Otherwise require a conservative title match plus author.
+    Kavita currently reports blank authors in its series feed, so for Kavita
+    only we permit the conservative title match when the library author is blank.
+    """
     fclause = " AND format=?" if fmt else ""
     fargs = (fmt,) if fmt else ()
-    if asin and c.execute("SELECT 1 FROM library WHERE gone_at IS NULL AND asin=? AND asin<>''" + fclause,
-                          (asin,) + fargs).fetchone():
+
+    if asin and c.execute(
+        "SELECT 1 FROM library WHERE gone_at IS NULL AND asin=? AND asin<>''" + fclause,
+        (asin,) + fargs
+    ).fetchone():
         return True
-    a = (author or "").split(",")[0].strip().lower()
-    if not a:
-        return False
-    return bool(c.execute(
-        "SELECT 1 FROM library WHERE gone_at IS NULL AND lower(title)=? AND lower(author) LIKE ?" + fclause,
-        ((title or "").strip().lower(), f"%{a}%") + fargs).fetchone())
+
+    rows = c.execute(
+        "SELECT title,author,source FROM library WHERE gone_at IS NULL" + fclause,
+        fargs
+    ).fetchall()
+
+    for row in rows:
+        if not _library_title_match(title, row["title"]):
+            continue
+        if _library_author_match(author, row["author"]):
+            return True
+        if (row["source"] or "").lower() == "kavita" and not (row["author"] or "").strip():
+            return True
+
+    return False
 
 
 def _ensure_webhook_token() -> str:

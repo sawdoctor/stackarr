@@ -2,6 +2,7 @@
 No personalisation, no AI — recent, well-rated catalog entries in given
 genres. Used for the Discover tab and as the new-user fallback."""
 import logging
+import time
 
 from . import audible, config
 
@@ -9,6 +10,30 @@ log = logging.getLogger("stackarr.discover")
 
 DEFAULT_GENRES = ["Science Fiction & Fantasy", "Mystery, Thriller & Suspense",
                   "Literature & Fiction", "Biographies & Memoirs", "History"]
+
+# Discover is remote-catalogue data and does not need to be refetched on every
+# page visit. Cached base records are copied before returning because routes.py
+# adds the current request/library state to them.
+_EBOOK_PAGE_CACHE = {}
+_EBOOK_CACHE_TTL = 3600
+
+_LANGUAGE_CODES = {
+    "english": "en", "german": "de", "spanish": "es", "french": "fr",
+    "italian": "it", "dutch": "nl", "portuguese": "pt", "japanese": "ja",
+    "chinese": "zh", "russian": "ru", "arabic": "ar", "korean": "ko",
+}
+
+
+def _language_ok(language: str) -> bool:
+    """Accept either language names ('english') or ISO codes ('en')."""
+    lang = (language or "").strip().lower()
+    target = (config.TARGET_LANGUAGE or "").strip().lower()
+    if not lang or not target:
+        return True
+    if lang == target:
+        return True
+    return (_LANGUAGE_CODES.get(target) == lang
+            or _LANGUAGE_CODES.get(lang) == target)
 
 
 def genre_new(genres: list[str], num_per: int = 6) -> list[dict]:
@@ -32,10 +57,48 @@ def popular(num: int = 12) -> list[dict]:
 
 
 def page(n: int, genres: list[str] | None = None) -> list[dict]:
-    """One page of endless-scroll discovery. Walks genres x audible pages
-    deterministically so scrolling keeps yielding fresh, well-rated books."""
+    """One page of endless-scroll discovery.
+
+    Ebook-only installs use the ebook catalogue. Audiobook/both installs keep
+    the existing Audible-led discovery behaviour.
+    """
     g = genres or DEFAULT_GENRES
     genre = g[n % len(g)]
+
+    from . import formats
+
+    if formats.active() == ["ebook"]:
+        from . import ebookmeta
+
+        cache_key = (tuple(g), int(n), (config.TARGET_LANGUAGE or "").lower())
+        now = time.monotonic()
+        cached = _EBOOK_PAGE_CACHE.get(cache_key)
+        if cached and now - cached[0] < _EBOOK_CACHE_TTL:
+            return [dict(b) for b in cached[1]]
+
+        # n rotates genres; every complete genre rotation advances the remote
+        # catalogue offset instead of repeating page zero forever.
+        batch = 24
+        cycle = n // len(g)
+        offset = cycle * batch
+
+        out = []
+        for item in ebookmeta.search_paged(genre, num=batch, offset=offset):
+            b = dict(item)
+            b["asin"] = b.get("id", "")
+            if not b["asin"]:
+                continue
+            if not _language_ok(b.get("language", "")):
+                continue
+            b["format"] = "ebook"
+            b["genre"] = genre
+            out.append(b)
+
+        # routes.py mutates returned dictionaries with live ownership/request
+        # state, so keep pristine copies in the catalogue cache.
+        _EBOOK_PAGE_CACHE[cache_key] = (now, [dict(b) for b in out])
+        return out
+
     audpage = n // len(g)
     out = []
     for b in audible.search(genre, num=18, page=audpage):

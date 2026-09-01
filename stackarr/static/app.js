@@ -50,9 +50,18 @@ const Stackarr = (() => {
     const canReq = !tag || tag[1] === "failed";
     const reqLabel = tag ? tag[2] : "Request";
     const j = (o) => JSON.stringify(o).replace(/'/g, "&#39;");
+    const bookId = b.asin
+      ? String(b.asin).split("/").map(encodeURIComponent).join("/")
+      : "";
+    const detail = bookId ? `${B()}/book/${bookId}` : "";
+    const cover = b.cover
+      ? `<img src="${esc(hires(b.cover))}" loading="lazy" alt="">`
+      : "";
     return `<div class="media-card">
       <div class="media-poster">
-        ${b.cover ? `<img src="${esc(hires(b.cover))}" loading="lazy" alt="">` : ""}
+        ${detail
+          ? `<a class="media-detail-link" href="${esc(detail)}" aria-label="Open ${esc(b.title)}">${cover}</a>`
+          : cover}
         ${tag ? `<span class="corner-badge ${tag[1]}">${tag[0]}</span>` : ""}
         <div class="media-overlay">
           <div class="ov-reason">${esc(reason)}</div>
@@ -63,10 +72,10 @@ const Stackarr = (() => {
           </div>
         </div>
       </div>
-      <div class="media-foot">
+      ${detail ? `<a class="media-foot media-foot-link" href="${esc(detail)}">` : `<div class="media-foot">`}
         <div class="media-title" title="${esc(b.title)}">${esc(b.title)}</div>
         <div class="media-author">${esc(b.author)}</div>
-      </div>
+      ${detail ? `</a>` : `</div>`}
     </div>`;
   };
 
@@ -691,14 +700,54 @@ const Stackarr = (() => {
 
       // endless scroll of the discovery gallery
       let page = 0, loading = false, done = false;
+      const seen = new Set();
       const loadMore = async () => {
         if (loading || done) return;
         loading = true;
-        const books = await api("/api/discover?page=" + page);
+
+        let books = [];
+        let tries = 0;
+
+        // A genre/page can legitimately return zero ebook results.
+        // Skip empty pages instead of treating the first empty one as EOF.
+        while (tries < 8 && (!books || !books.length)) {
+          books = await api("/api/discover?page=" + page);
+          page++;
+          tries++;
+        }
+
         loading = false;
-        if (!books || !books.length) { done = true; if (sentinel) sentinel.textContent = ""; return; }
-        disc.insertAdjacentHTML("beforeend", books.map(mediaCard).join(""));
-        page++;
+
+        if (!books || !books.length) {
+          done = true;
+          if (sentinel) sentinel.textContent = "";
+          return;
+        }
+
+        const fresh = books.filter((b) => {
+          const norm = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+          const key = norm(b.title) + "|" + norm(String(b.author || "").split(",")[0]);
+          const fallback = String(b.asin || "");
+          const k = key !== "|" ? key : fallback;
+          if (!k || seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+
+        if (fresh.length) {
+          disc.insertAdjacentHTML("beforeend", fresh.map(mediaCard).join(""));
+          Stackarr.fitCovers();
+        }
+
+        // IntersectionObserver does not fire again merely because a load
+        // completed while the sentinel remained intersecting. Explicitly
+        // continue only while it is still close to the visible viewport.
+        const nearViewport = sentinel &&
+          sentinel.getBoundingClientRect().top < window.innerHeight + 600;
+
+        if (disc.children.length < 18 || nearViewport) {
+          setTimeout(loadMore, 0);
+        }
       };
       if (sentinel && "IntersectionObserver" in window) {
         new IntersectionObserver((es) => { if (es[0].isIntersecting) loadMore(); },
@@ -723,5 +772,6 @@ const Stackarr = (() => {
     },
   };
 })();
+
 Stackarr.boot();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register((window.URL_BASE || "") + "/sw.js").catch(() => {});
