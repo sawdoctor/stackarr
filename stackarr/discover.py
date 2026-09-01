@@ -37,7 +37,49 @@ def _language_ok(language: str) -> bool:
 
 
 def genre_new(genres: list[str], num_per: int = 6) -> list[dict]:
+    """Genre browse / cold-start catalogue.
+
+    Ebook-only installs use Hardcover's popular catalogue with the same
+    confidence filtering as endless Discover. Google/Open Library remain
+    the fallback. Audiobook installs keep the existing Audible behaviour.
+    """
+    from . import formats, ebookmeta
+
     out, seen = [], set()
+
+    if formats.active() == ["ebook"]:
+        for g in genres or DEFAULT_GENRES:
+            source = ebookmeta.hardcover_discover(g, num=num_per, offset=0)
+            if source is None:
+                source = ebookmeta.search_paged(g, num=num_per, offset=0)
+
+            for item in source:
+                b = dict(item)
+                bid = b.get("id") or b.get("asin") or ""
+                if not bid or bid in seen:
+                    continue
+                if not _language_ok(b.get("language", "")):
+                    continue
+
+                seen.add(bid)
+                b["asin"] = bid
+                b["format"] = "ebook"
+                b["genre"] = g
+                out.append(b)
+
+        # Across multiple lanes (popular/cold start), favour books with the
+        # strongest real Hardcover readership. Single-genre browse retains
+        # effectively the same popularity ordering.
+        out.sort(
+            key=lambda b: (
+                b.get("users_read_count") or 0,
+                b.get("rating") or 0,
+                b.get("release_date") or "",
+            ),
+            reverse=True,
+        )
+        return out
+
     for g in genres or DEFAULT_GENRES:
         for b in audible.search(g, num=num_per * 3):
             if not b.get("asin") or b["asin"] in seen:
@@ -48,9 +90,15 @@ def genre_new(genres: list[str], num_per: int = 6) -> list[dict]:
                 continue
             seen.add(b["asin"])
             out.append(b)
-    out.sort(key=lambda b: (b.get("rating") or 0, b.get("release_date") or ""), reverse=True)
-    return out
 
+    out.sort(
+        key=lambda b: (
+            b.get("rating") or 0,
+            b.get("release_date") or "",
+        ),
+        reverse=True,
+    )
+    return out
 
 def popular(num: int = 12) -> list[dict]:
     return genre_new(DEFAULT_GENRES, num_per=4)[:num]
@@ -70,7 +118,7 @@ def page(n: int, genres: list[str] | None = None) -> list[dict]:
     if formats.active() == ["ebook"]:
         from . import ebookmeta
 
-        cache_key = (tuple(g), int(n), (config.TARGET_LANGUAGE or "").lower())
+        cache_key = ("hardcover-v1", tuple(g), int(n), (config.TARGET_LANGUAGE or "").lower())
         now = time.monotonic()
         cached = _EBOOK_PAGE_CACHE.get(cache_key)
         if cached and now - cached[0] < _EBOOK_CACHE_TTL:
@@ -82,8 +130,15 @@ def page(n: int, genres: list[str] | None = None) -> list[dict]:
         cycle = n // len(g)
         offset = cycle * batch
 
+        # Hardcover is the primary visual discovery catalogue: it gives us
+        # popularity + community genre confidence. Google Books/Open Library
+        # remain the fallback and continue to power explicit search.
+        source = ebookmeta.hardcover_discover(genre, num=batch, offset=offset)
+        if source is None:
+            source = ebookmeta.search_paged(genre, num=batch, offset=offset)
+
         out = []
-        for item in ebookmeta.search_paged(genre, num=batch, offset=offset):
+        for item in source:
             b = dict(item)
             b["asin"] = b.get("id", "")
             if not b["asin"]:

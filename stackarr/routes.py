@@ -672,7 +672,7 @@ def taste_page():
 def book_page(asin):
     # ebook ids are "gb:…"/"ol:…" and resolve via the ebook catalogue; real
     # audiobook ASINs go to Audible + Audnexus as before.
-    if asin.startswith(("gb:", "ol:")):
+    if asin.startswith(("gb:", "ol:", "hc:")):
         from . import ebookmeta
         b = ebookmeta.by_id(asin) or {}
         b["format"] = "ebook"
@@ -695,8 +695,8 @@ def book_page(asin):
     b.setdefault("title", "Unknown")
     b["state"] = _state_for(asin, b.get("title", ""), b.get("author", ""))
     u = auth.current_user()
-    key = db.rating_key(asin if not asin.startswith(("gb:", "ol:")) else "",
-                        b.get("title", ""), b.get("author", "")) if asin.startswith(("gb:", "ol:")) else asin
+    key = db.rating_key(asin if not asin.startswith(("gb:", "ol:", "hc:")) else "",
+                        b.get("title", ""), b.get("author", "")) if asin.startswith(("gb:", "ol:", "hc:")) else asin
     with db.conn() as c:
         req = c.execute("SELECT status, detail FROM requests WHERE asin=? AND asin<>'' ORDER BY id DESC LIMIT 1",
                         (asin,)).fetchone()
@@ -1678,7 +1678,7 @@ def api_mark_read():
         c.execute("INSERT OR IGNORE INTO signals (user_id,kind,value,weight,why,format) VALUES (?,?,?,?,?,?)",
                   (u["id"], "asin", bid or title, -1, f"already read: {b['title']}", fmt))
     # also put it on the 'read' shelf so it counts toward goal + heatmap
-    rk = db.rating_key(bid if not bid.startswith(("gb:", "ol:")) else "", b.get("title", title), b.get("author", authr))
+    rk = db.rating_key(bid if not bid.startswith(("gb:", "ol:", "hc:")) else "", b.get("title", title), b.get("author", authr))
     # prefer the on-screen cover the client sent over the (often coverless) re-search
     # hit, so the read shelf stores a real cover instead of needing a /coverart lookup.
     cover = b.get("cover") or body.get("cover", "")
@@ -1722,8 +1722,8 @@ def api_rate():
     title, author = (body.get("title") or "").strip(), (body.get("author") or "").strip()
     review = (body.get("review") or "").strip()[:1500]
     spoiler = 1 if body.get("spoiler") else 0
-    fmt = body.get("format") or ("ebook" if asin.startswith(("gb:", "ol:")) else "audiobook")
-    if (not title or not author) and asin and not asin.startswith(("t-", "gb:", "ol:")):
+    fmt = body.get("format") or ("ebook" if asin.startswith(("gb:", "ol:", "hc:")) else "audiobook")
+    if (not title or not author) and asin and not asin.startswith(("t-", "gb:", "ol:", "hc:")):
         meta = audible.by_asin(asin) or {}
         title = title or meta.get("title", "")
         author = author or meta.get("author", "")
@@ -1738,7 +1738,7 @@ def api_rate():
     if asin.startswith("t-"):
         key = asin
     else:
-        real_asin = asin if (asin and not asin.startswith(("gb:", "ol:"))) else ""
+        real_asin = asin if (asin and not asin.startswith(("gb:", "ol:", "hc:"))) else ""
         key = db.rating_key(real_asin, title, author)
     if not key or key == "t-":
         return jsonify({"error": "need an asin or title + author"}), 400
@@ -2422,7 +2422,7 @@ def coverart():
             cover = (audible.by_asin(asin) or {}).get("cover", "")
         if not cover and title:
             q = f"{title} {author}".strip()
-            hits = ebookmeta.search(q, 1) if (fmt == "ebook" or asin.startswith(("gb:", "ol:"))) else audible.search(q, num=1)
+            hits = ebookmeta.search(q, 1) if (fmt == "ebook" or asin.startswith(("gb:", "ol:", "hc:"))) else audible.search(q, num=1)
             if hits:
                 cover = hits[0].get("cover", "")
     except Exception as e:

@@ -3,7 +3,7 @@
 {% macro bookcard(b, link=True) %}
 {% set asin = b.asin or b.rkey %}
 {# auto 'currently reading' cards aren't persisted, so a t- link would hit a dead "Unknown" page — only link real (non-auto) entries #}
-{% set canlink = asin and (asin.startswith('B') or asin.startswith('gb:') or asin.startswith('ol:') or asin.startswith('t-')) and not b.auto %}
+{% set canlink = asin and (asin.startswith('B') or asin.startswith('gb:') or asin.startswith('ol:') or asin.startswith('hc:') or asin.startswith('t-')) and not b.auto %}
 <a class="media-card" data-format="{{ b.format or 'audiobook' }}" href="{{ url_for('main.book_page', asin=asin) if (link and canlink) else '#' }}">
   <div class="media-poster"><img src="{{ (b.cover|hires) if b.cover else url_for('main.coverart', title=b.title, author=b.author, asin=b.asin or '', fmt=b.format or '') }}" loading="lazy" alt="" onerror="this.onerror=null;this.src='{{ url_for('static', filename='cover-placeholder.svg') }}'">
     {{ fmt_badge(b.format) }}</div>

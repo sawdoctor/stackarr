@@ -260,7 +260,7 @@ def by_author(author: str, num: int = 25) -> list[dict]:
 
 
 def by_id(book_id: str) -> dict | None:
-    """Resolve a single ebook by its 'gb:'/'ol:' id."""
+    """Resolve a single ebook by its 'gb:'/'ol:'/'hc:' id."""
     if not book_id:
         return None
     if book_id.startswith("gb:"):
@@ -269,6 +269,8 @@ def by_id(book_id: str) -> dict | None:
     if book_id.startswith("ol:"):
         docs = _ol_get({"q": "key:" + book_id[3:], "limit": 1})
         return _ol_normalize(docs[0]) if docs else None
+    if book_id.startswith("hc:"):
+        return hardcover_by_id(book_id)
     return None
 
 
@@ -341,3 +343,243 @@ def _hardcover_shelf(token: str, status_id: int) -> list[dict]:
 
 def hardcover_token() -> str:
     return db.setting("hardcover_token", config.HARDCOVER_TOKEN)
+
+
+_HARDCOVER_DISCOVER_GENRES = {
+    "Science Fiction & Fantasy": (
+        "Science Fiction", "Sci-fi", "Fantasy", "Science Fiction & Fantasy",
+    ),
+    "Mystery, Thriller & Suspense": (
+        "Mystery", "Thriller", "Thrillers", "Suspense", "Thriller & Suspense",
+    ),
+    "Literature & Fiction": (
+        "Literary Fiction", "Fiction", "Literature",
+    ),
+    "Biographies & Memoirs": (
+        "Memoir", "Biography", "Autobiography", "Biography & Autobiography",
+    ),
+    "History": (
+        "History",
+    ),
+}
+
+
+def _hardcover_headers(token: str) -> dict:
+    return {
+        "Authorization": token if token.lower().startswith("bearer ") else f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+
+
+def _hardcover_genres(book: dict) -> list[tuple[str, int]]:
+    tags = book.get("cached_tags") or {}
+    rows = []
+    if isinstance(tags, dict):
+        rows = tags.get("Genre") or tags.get("genre") or []
+
+    out = []
+    for row in rows:
+        if isinstance(row, dict):
+            name = (row.get("tag") or row.get("name") or "").strip()
+            try:
+                count = int(row.get("count") or 0)
+            except (TypeError, ValueError):
+                count = 0
+            if name:
+                out.append((name, count))
+    return out
+
+
+def _hardcover_cover(book: dict) -> str:
+    image = book.get("cached_image")
+    if isinstance(image, dict):
+        return image.get("url") or ""
+    if isinstance(image, str):
+        return image
+    return ""
+
+
+def _hardcover_normalize(book: dict) -> dict:
+    authors = [
+        (c.get("author") or {}).get("name", "")
+        for c in (book.get("contributions") or [])
+    ]
+    authors = [a for a in authors if a]
+
+    genres = _hardcover_genres(book)
+    strongest = max((count for _, count in genres), default=0)
+    confident = [
+        name for name, count in genres
+        if count >= 2 and (not strongest or count >= strongest * 0.25)
+    ]
+
+    try:
+        rating = round(float(book.get("rating")), 2) if book.get("rating") else None
+    except (TypeError, ValueError):
+        rating = None
+
+    isbns = book.get("isbns") or []
+    isbn = isbns[0] if isinstance(isbns, list) and isbns else ""
+
+    return {
+        "id": "hc:" + str(book.get("id") or ""),
+        "asin": "",
+        "isbn": isbn,
+        "title": book.get("title") or "",
+        "subtitle": "",
+        "author": ", ".join(authors),
+        "narrator": "",
+        "cover": _hardcover_cover(book),
+        "series": "",
+        "sequence": None,
+        "release_date": str(book.get("release_date") or "")[:10],
+        "runtime_hours": None,
+        "pages": None,
+        "rating": rating,
+        "num_ratings": int(book.get("ratings_count") or 0),
+        "summary": "",
+        "publisher": "",
+        "format": "ebook",
+        "categories": confident,
+        # Hardcover's work record doesn't expose a simple canonical language
+        # in this query. Discovery is currently our English catalogue lane.
+        "language": "en",
+        "users_read_count": int(book.get("users_read_count") or 0),
+    }
+
+
+def _hardcover_books_query(where: str, limit: int, offset: int = 0) -> list[dict] | None:
+    token = hardcover_token()
+    if not token:
+        return None
+
+    query = f"""
+    query {{
+      books(
+        where: {where}
+        order_by: {{users_read_count: desc}}
+        limit: {int(limit)}
+        offset: {int(offset)}
+      ) {{
+        id
+        title
+        release_date
+        rating
+        ratings_count
+        users_read_count
+        cached_tags
+        cached_image
+        contributions {{
+          author {{
+            name
+          }}
+        }}
+      }}
+    }}
+    """
+
+    try:
+        r = requests.post(
+            "https://api.hardcover.app/v1/graphql",
+            headers=_hardcover_headers(token),
+            json={"query": query},
+            timeout=25,
+        )
+        r.raise_for_status()
+        j = r.json()
+        if j.get("errors"):
+            log.warning("hardcover discovery GraphQL error: %s", j["errors"])
+            return None
+        return (j.get("data") or {}).get("books") or []
+    except Exception as e:
+        log.warning("hardcover discovery failed: %s", e)
+        return None
+
+
+def hardcover_discover(genre: str, num: int = 24, offset: int = 0) -> list[dict] | None:
+    """Popular Hardcover works for a Discover lane.
+
+    Genre tags are user/community supplied, so merely having a tag is not
+    enough. Keep it only when it has >=2 votes and >=25% of the work's
+    strongest genre vote. This removes stray classifications such as
+    Three-Body Problem -> History (1) while preserving genuine crossovers.
+    """
+    terms = _HARDCOVER_DISCOVER_GENRES.get(genre, (genre,))
+
+    clauses = []
+    for term in terms:
+        safe = term.replace("\\", "\\\\").replace('"', '\\"')
+        clauses.append(
+            '{cached_tags: {_contains: {Genre: [{tag: "' + safe + '"}]}}}'
+        )
+
+    where = "{_or: [" + ", ".join(clauses) + "]}"
+
+    # Fetch a wider remote window because confidence/cover filtering happens
+    # locally. Offset is scaled by the same amount so endless-scroll pages do
+    # not repeat the previous candidate window.
+    multiplier = 5
+    raw = _hardcover_books_query(
+        where,
+        limit=max(num * multiplier, 80),
+        offset=max(offset, 0) * multiplier,
+    )
+    if raw is None:
+        return None
+
+    wanted = {t.lower() for t in terms}
+    out = []
+    seen = set()
+
+    for book in raw:
+        genres = _hardcover_genres(book)
+        if not genres:
+            continue
+
+        strongest = max((count for _, count in genres), default=0)
+        matched = max(
+            (count for name, count in genres if name.lower() in wanted),
+            default=0,
+        )
+
+        if matched < 2:
+            continue
+        if strongest and matched < strongest * 0.25:
+            continue
+
+        b = _hardcover_normalize(book)
+
+        if not b["id"] or b["id"] == "hc:":
+            continue
+        if not b["title"] or not b["author"] or not b["cover"]:
+            continue
+
+        key = (b["title"].strip().lower(), b["author"].strip().lower())
+        if key in seen:
+            continue
+        seen.add(key)
+
+        out.append(b)
+        if len(out) >= num:
+            break
+
+    return out
+
+
+def hardcover_by_id(book_id: str) -> dict | None:
+    if not book_id.startswith("hc:"):
+        return None
+
+    raw_id = book_id[3:].strip()
+    if not raw_id.isdigit():
+        return None
+
+    raw = _hardcover_books_query(
+        "{id: {_eq: " + raw_id + "}}",
+        limit=1,
+        offset=0,
+    )
+    if not raw:
+        return None
+
+    return _hardcover_normalize(raw[0])

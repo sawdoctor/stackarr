@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_fmt.html" import fmt_badge with context %}
 {% macro shelfcard(b) %}
-{% set linkable = b.rkey and (b.rkey.startswith('B') or b.rkey.startswith('gb:') or b.rkey.startswith('ol:')) %}
+{% set linkable = b.rkey and (b.rkey.startswith('B') or b.rkey.startswith('gb:') or b.rkey.startswith('ol:') or b.rkey.startswith('hc:')) %}
 <a class="media-card" data-format="{{ b.format or 'audiobook' }}" href="{{ url_for('main.book_page', asin=b.rkey) if linkable else '#' }}">
   <div class="media-poster"><img src="{{ (b.cover|hires) or url_for('static', filename='cover-placeholder.svg') }}" loading="lazy" alt="" onerror="this.onerror=null;this.src='{{ url_for('static', filename='cover-placeholder.svg') }}'">
     {{ fmt_badge(b.format) }}</div>
