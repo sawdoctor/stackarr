@@ -110,7 +110,24 @@ def refresh_library():
                 return False
             if req == lib:
                 return True
-            return lib.startswith(req + " (") or lib.startswith(req + " [")
+            if lib.startswith(req + " (") or lib.startswith(req + " ["):
+                return True
+
+            # Hardcover sometimes uses a canonical alternate title such as
+            # "The Hobbit, or There and Back Again", while Kavita reports the
+            # simpler published title "The Hobbit". Only permit this narrow,
+            # explicit alternate-title form so availability matching remains
+            # conservative.
+            if ", or " in req:
+                short = req.split(", or ", 1)[0].strip()
+                if len(short) >= 4:
+                    return (
+                        lib == short
+                        or lib.startswith(short + " (")
+                        or lib.startswith(short + " [")
+                    )
+
+            return False
 
         def author_match(request_author, library_author):
             req = re.sub(r"[^a-z0-9]", "", (request_author or "").split(",")[0].lower())
