@@ -1,7 +1,13 @@
 {% extends "base.html" %}
+{% from "_fmt.html" import fmt_filter with context %}
 {% block content %}
-<div class="page-head"><h2 class="page-title">Discover <span class="subtle">popular & new in your genres</span></h2></div>
-<div class="section" id="results-head" hidden><div class="section-head"><h3>Search results</h3></div></div>
+<div class="page-head">
+  <h2 class="page-title">Discover <span class="subtle">popular & new in your genres</span></h2>
+  {{ fmt_filter() }}
+</div>
+<div class="section" id="results-head" hidden>
+  <div class="section-head"><h3>Search results</h3></div>
+</div>
 <div id="results" class="grid"></div>
 <div class="section" id="discover-section">
   <div class="section-head"><h3>Popular &amp; new for you</h3></div>
@@ -9,4 +15,4 @@
   <div id="scroll-sentinel" class="subtle" style="text-align:center;padding:28px">Loading more…</div>
 </div>
 {% endblock %}
-{% block scripts %}<script>Stackarr.initDiscover();</script>{% endblock %}
+{% block scripts %}<script>Stackarr.initDiscover();Stackarr.initFormatFilter();</script>{% endblock %}

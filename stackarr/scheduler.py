@@ -110,8 +110,16 @@ def refresh_library():
                 return False
             if req == lib:
                 return True
+
             if lib.startswith(req + " (") or lib.startswith(req + " ["):
                 return True
+
+            # Audiobookshelf commonly prefixes series/book information, e.g.
+            # "Arcane Ascension, Book 1 - Sufficiently Advanced Magic".
+            # The availability loop separately requires matching author + format.
+            for sep in (" - ", " – ", " — "):
+                if lib.endswith(sep + req):
+                    return True
 
             # Hardcover sometimes uses a canonical alternate title such as
             # "The Hobbit, or There and Back Again", while Kavita reports the

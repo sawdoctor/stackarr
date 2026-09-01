@@ -104,63 +104,125 @@ def popular(num: int = 12) -> list[dict]:
     return genre_new(DEFAULT_GENRES, num_per=4)[:num]
 
 
+def _ebook_page(n: int, genres: list[str]) -> list[dict]:
+    """One ebook Discover page."""
+    from . import ebookmeta
+
+    genre = genres[n % len(genres)]
+
+    cache_key = (
+        "hardcover-v1",
+        tuple(genres),
+        int(n),
+        (config.TARGET_LANGUAGE or "").lower(),
+    )
+    now = time.monotonic()
+    cached = _EBOOK_PAGE_CACHE.get(cache_key)
+
+    if cached and now - cached[0] < _EBOOK_CACHE_TTL:
+        return [dict(b) for b in cached[1]]
+
+    batch = 24
+    cycle = n // len(genres)
+    offset = cycle * batch
+
+    source = ebookmeta.hardcover_discover(
+        genre,
+        num=batch,
+        offset=offset,
+    )
+
+    if source is None:
+        source = ebookmeta.search_paged(
+            genre,
+            num=batch,
+            offset=offset,
+        )
+
+    out = []
+
+    for item in source:
+        b = dict(item)
+        b["asin"] = b.get("id", "")
+
+        if not b["asin"]:
+            continue
+
+        if not _language_ok(b.get("language", "")):
+            continue
+
+        b["format"] = "ebook"
+        b["genre"] = genre
+        out.append(b)
+
+    _EBOOK_PAGE_CACHE[cache_key] = (
+        now,
+        [dict(b) for b in out],
+    )
+
+    return out
+
+
+def _audio_page(n: int, genres: list[str]) -> list[dict]:
+    """One audiobook Discover page."""
+    genre = genres[n % len(genres)]
+    audpage = n // len(genres)
+
+    out = []
+
+    for item in audible.search(
+        genre,
+        num=18,
+        page=audpage,
+    ):
+        if not item.get("asin"):
+            continue
+
+        if (item.get("rating") or 0) < config.SUGGEST_RATING_FLOOR:
+            continue
+
+        if (
+            item.get("language") or "english"
+        ).lower() != config.TARGET_LANGUAGE:
+            continue
+
+        b = dict(item)
+        b["format"] = "audiobook"
+        b["genre"] = genre
+        out.append(b)
+
+    return out
+
+
 def page(n: int, genres: list[str] | None = None) -> list[dict]:
     """One page of endless-scroll discovery.
 
-    Ebook-only installs use the ebook catalogue. Audiobook/both installs keep
-    the existing Audible-led discovery behaviour.
+    ebook      -> Hardcover/ebook catalogue
+    audiobook  -> Audible catalogue
+    both       -> interleaved results from both catalogues
     """
-    g = genres or DEFAULT_GENRES
-    genre = g[n % len(g)]
-
     from . import formats
 
-    if formats.active() == ["ebook"]:
-        from . import ebookmeta
+    g = genres or DEFAULT_GENRES
+    active = formats.active()
 
-        cache_key = ("hardcover-v1", tuple(g), int(n), (config.TARGET_LANGUAGE or "").lower())
-        now = time.monotonic()
-        cached = _EBOOK_PAGE_CACHE.get(cache_key)
-        if cached and now - cached[0] < _EBOOK_CACHE_TTL:
-            return [dict(b) for b in cached[1]]
+    if active == ["ebook"]:
+        return _ebook_page(n, g)
 
-        # n rotates genres; every complete genre rotation advances the remote
-        # catalogue offset instead of repeating page zero forever.
-        batch = 24
-        cycle = n // len(g)
-        offset = cycle * batch
+    if active == ["audiobook"]:
+        return _audio_page(n, g)
 
-        # Hardcover is the primary visual discovery catalogue: it gives us
-        # popularity + community genre confidence. Google Books/Open Library
-        # remain the fallback and continue to power explicit search.
-        source = ebookmeta.hardcover_discover(genre, num=batch, offset=offset)
-        if source is None:
-            source = ebookmeta.search_paged(genre, num=batch, offset=offset)
+    audio = _audio_page(n, g)
+    ebooks = _ebook_page(n, g)
 
-        out = []
-        for item in source:
-            b = dict(item)
-            b["asin"] = b.get("id", "")
-            if not b["asin"]:
-                continue
-            if not _language_ok(b.get("language", "")):
-                continue
-            b["format"] = "ebook"
-            b["genre"] = genre
-            out.append(b)
-
-        # routes.py mutates returned dictionaries with live ownership/request
-        # state, so keep pristine copies in the catalogue cache.
-        _EBOOK_PAGE_CACHE[cache_key] = (now, [dict(b) for b in out])
-        return out
-
-    audpage = n // len(g)
+    # Interleave rather than putting one format in a big block.
     out = []
-    for b in audible.search(genre, num=18, page=audpage):
-        if not b.get("asin") or (b.get("rating") or 0) < config.SUGGEST_RATING_FLOOR:
-            continue
-        if (b.get("language") or "english").lower() != config.TARGET_LANGUAGE:
-            continue
-        b["genre"] = genre
-        out.append(b)
+    total = max(len(audio), len(ebooks))
+
+    for i in range(total):
+        if i < len(audio):
+            out.append(audio[i])
+        if i < len(ebooks):
+            out.append(ebooks[i])
+
     return out

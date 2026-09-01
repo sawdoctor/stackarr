@@ -57,7 +57,7 @@ const Stackarr = (() => {
     const cover = b.cover
       ? `<img src="${esc(hires(b.cover))}" loading="lazy" alt="">`
       : "";
-    return `<div class="media-card">
+    return `<div class="media-card" data-format="${esc(b.format || "audiobook")}">
       <div class="media-poster">
         ${detail
           ? `<a class="media-detail-link" href="${esc(detail)}" aria-label="Open ${esc(b.title)}">${cover}</a>`
@@ -726,7 +726,7 @@ const Stackarr = (() => {
 
         const fresh = books.filter((b) => {
           const norm = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-          const key = norm(b.title) + "|" + norm(String(b.author || "").split(",")[0]);
+          const key = norm(b.title) + "|" + norm(String(b.author || "").split(",")[0]) + "|" + String(b.format || "audiobook");
           const fallback = String(b.asin || "");
           const k = key !== "|" ? key : fallback;
           if (!k || seen.has(k)) return false;
@@ -737,6 +737,7 @@ const Stackarr = (() => {
         if (fresh.length) {
           disc.insertAdjacentHTML("beforeend", fresh.map(mediaCard).join(""));
           Stackarr.fitCovers();
+          Stackarr.initFormatFilter();
         }
 
         // IntersectionObserver does not fire again merely because a load
@@ -765,6 +766,7 @@ const Stackarr = (() => {
         if (discSec) discSec.style.display = "none"; rhead.hidden = false;
         results.innerHTML = books.map(mediaCard).join("") || `<div class="empty"><p>No results.</p></div>`;
         Stackarr.fitCovers();
+        Stackarr.initFormatFilter();
       };
       const q = document.getElementById("topsearch");
       if (q) { q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => doSearch(q.value.trim()), 350); }); }

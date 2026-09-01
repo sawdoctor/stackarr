@@ -6,7 +6,7 @@ import re
 from flask import (Blueprint, jsonify, redirect, render_template, request,
                    session, url_for)
 
-from . import (absclient, audible, audnexus, auth, chaptarr, config, db,
+from . import (absclient, audiobridge, audible, audnexus, auth, chaptarr, config, db,
                discover, ebookmeta, formats, notify, recommend, shelfmark, tagging)
 
 log = logging.getLogger("stackarr.routes")
@@ -1245,7 +1245,19 @@ def _library_title_match(request_title, library_title) -> bool:
         return False
     if req == lib:
         return True
-    return lib.startswith(req + " (") or lib.startswith(req + " [")
+
+    # Edition suffixes, e.g. "The Hobbit (Illustrated)".
+    if lib.startswith(req + " (") or lib.startswith(req + " ["):
+        return True
+
+    # Audiobookshelf commonly prefixes a series/book label, e.g.
+    # "Arcane Ascension, Book 1 - Sufficiently Advanced Magic".
+    # _owned() separately requires the correct author and format.
+    for sep in (" - ", " – ", " — "):
+        if lib.endswith(sep + req):
+            return True
+
+    return False
 
 
 def _library_author_match(request_author, library_author) -> bool:
@@ -1333,11 +1345,25 @@ def _cached_book(asin) -> dict:
     return {}
 
 
-def _state_for(asin, title, author):
+def _state_for(asin, title, author, fmt=None):
     with db.conn() as c:
-        owned = _owned(c, asin, title, author)
-        req = c.execute("SELECT status FROM requests WHERE asin=? AND asin<>'' ORDER BY id DESC LIMIT 1",
-                        (asin,)).fetchone()
+        owned = _owned(c, asin, title, author, fmt=fmt)
+
+        if fmt:
+            req = c.execute(
+                "SELECT status FROM requests "
+                "WHERE asin=? AND asin<>'' AND format=? "
+                "ORDER BY id DESC LIMIT 1",
+                (asin, fmt),
+            ).fetchone()
+        else:
+            req = c.execute(
+                "SELECT status FROM requests "
+                "WHERE asin=? AND asin<>'' "
+                "ORDER BY id DESC LIMIT 1",
+                (asin,),
+            ).fetchone()
+
     return "available" if owned else (req["status"] if req else "none")
 
 
@@ -1350,24 +1376,58 @@ def api_discover():
         pg = 0
     books = discover.page(pg)
     for b in books:
-        b["state"] = _state_for(b["asin"], b["title"], b["author"])
+        b["state"] = _state_for(
+            b["asin"],
+            b["title"],
+            b["author"],
+            fmt=b.get("format"),
+        )
     return jsonify(books)
 
 
 def _search_catalog(q, num):
-    """Search the catalogue of the active format(s). Ebook-only installs search
-    the ebook catalogue (mapping its id into `asin` so the front-end's book
-    links work); otherwise the audiobook catalogue. 'both' stays audiobook-led
-    for the quick box — full ebook search lives in the format-aware lanes."""
-    if formats.active() == ["ebook"]:
-        from . import ebookmeta
-        out = []
+    """Search the catalogue of the active format(s).
+
+    In both mode, return an interleaved audiobook + ebook result set.
+    """
+    from . import ebookmeta
+
+    active = formats.active()
+
+    ebooks = []
+    if "ebook" in active:
         for x in ebookmeta.search(q, num=num):
-            x = dict(x, asin=x.get("id", ""))
-            if x["asin"]:
-                out.append(x)
-        return out
-    return [x for x in audible.search(q, num=num) if x.get("asin")]
+            b = dict(x, asin=x.get("id", ""), format="ebook")
+            if b["asin"]:
+                ebooks.append(b)
+
+    audio = []
+    if "audiobook" in active:
+        for x in audible.search(q, num=num):
+            if not x.get("asin"):
+                continue
+            b = dict(x)
+            b["format"] = "audiobook"
+            audio.append(b)
+
+    if active == ["ebook"]:
+        return ebooks[:num]
+
+    if active == ["audiobook"]:
+        return audio[:num]
+
+    out = []
+    total = max(len(audio), len(ebooks))
+
+    for i in range(total):
+        if i < len(audio):
+            out.append(audio[i])
+        if i < len(ebooks):
+            out.append(ebooks[i])
+        if len(out) >= num:
+            break
+
+    return out[:num]
 
 
 @bp.route("/api/suggest")
@@ -1439,7 +1499,12 @@ def api_search():
         return jsonify([])
     books = _search_catalog(q, 12)
     for b in books:
-        b["state"] = _state_for(b["asin"], b["title"], b["author"])
+        b["state"] = _state_for(
+            b["asin"],
+            b["title"],
+            b["author"],
+            fmt=b.get("format"),
+        )
     return jsonify(books)
 
 
@@ -1512,13 +1577,16 @@ def _acquisition_handoff(title, author, asin="", fmt="audiobook"):
             fmt="ebook",
         )
 
+    if fmt == "audiobook":
+        return audiobridge.add_and_search(
+            title,
+            author,
+            asin,
+        )
+
     return {
         "ok": False,
-        "detail": (
-            "Audiobook requests through Stackarr are deliberately disabled "
-            "until the ebook Shelfmark route works end-to-end. "
-            "Use the existing AudiobookRequest system for audiobooks."
-        ),
+        "detail": f"Unsupported acquisition format: {fmt or 'unknown'}",
     }
 
 
@@ -1526,15 +1594,6 @@ def _hand_off_request(user_id, book, source):
     fmt = (book.get("format") or "audiobook").strip().lower()
     user = db.get_user(user_id)
 
-    # During the ebook-first migration, Stackarr must not touch the existing
-    # audiobook acquisition system at all.
-    if fmt != "ebook":
-        return _acquisition_handoff(
-            book.get("title", ""),
-            book.get("author", ""),
-            book.get("asin", ""),
-            fmt=fmt,
-        )
     # Hold non-admin, non-trusted requests for approval instead of grabbing.
     if _needs_approval(user):
         return _queue_for_approval(user, book, source)
