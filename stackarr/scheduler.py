@@ -371,15 +371,23 @@ def refresh_library():
 
             hit = False
             for item in candidates:
-                if not title_match(r["title"], item["title"]):
+                req_title = (r["title"] or "").strip().lower()
+                lib_title = (item["title"] or "").strip().lower()
+
+                # Safe subtitle form:
+                # "Ruins of the Earth: Ruins of the Earth, Book 1"
+                repeated_title = lib_title.startswith(
+                    f"{req_title}: {req_title}"
+                )
+
+                if not title_match(r["title"], item["title"]) and not repeated_title:
                     continue
 
-                if author_match(r["author"], item["author"]):
+                if repeated_title or author_match(r["author"], item["author"]):
                     hit = True
                     break
 
-                # Kavita's current series feed contains no author field.
-                # Only permit title-only matching for that known case.
+                # Kavita book filenames currently contain no author metadata.
                 if (item["source"] or "").lower() == "kavita" and not (item["author"] or "").strip():
                     hit = True
                     break

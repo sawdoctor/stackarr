@@ -114,17 +114,25 @@ class KavitaBackend(Backend):
         if not (item_id or "").startswith("kavita:"):
             return False
         try:
-            sid = int(item_id.split(":", 1)[1])
-        except ValueError:
-            return False
-        try:
-            ep = "/api/Reader/mark-read" if finished else "/api/Reader/mark-unread"
-            r = self._post(ep, json={"seriesId": sid})
+            parts = item_id.split(":")
+            sid = int(parts[1])
+
+            if len(parts) >= 3:
+                vid = int(parts[2])
+                ep = "/api/Reader/mark-volume-read" if finished else "/api/Reader/mark-volume-unread"
+                r = self._post(ep, json={
+                    "seriesId": sid,
+                    "volumeId": vid,
+                    "generateReadingSession": False,
+                })
+            else:
+                ep = "/api/Reader/mark-read" if finished else "/api/Reader/mark-unread"
+                r = self._post(ep, json={"seriesId": sid})
+
             return r.status_code in (200, 204)
         except Exception as e:
             log.warning("kavita mark_read failed: %s", e)
             return False
-
     # --- data -------------------------------------------------------------
     def _all_series(self, raise_on_error: bool = False) -> list[dict]:
         # Paginate — a single PageSize=2000 silently drops series past the first
@@ -150,40 +158,128 @@ class KavitaBackend(Backend):
 
     def library_items(self) -> list[dict]:
         out = []
+
         for s in self._all_series(raise_on_error=True):
             sid = s.get("id")
             if sid is None:
                 continue
-            name = _clean_series_name(s.get("name") or s.get("originalName") or "")
-            if not name:
+
+            series = _clean_series_name(
+                s.get("name") or s.get("originalName") or ""
+            )
+            if not series:
                 continue
-            out.append(self._tag({
-                "item_id": f"kavita:{sid}", "library_id": str(s.get("libraryId", "")),
-                "title": name, "author": "", "asin": "",
-                "series": "", "series_seq": None, "narrator": "",
-            }))
+
+            r = self._get("/api/Series/volumes", params={"seriesId": sid})
+            r.raise_for_status()
+            volumes = r.json() or []
+
+            emitted = False
+
+            for v in volumes:
+                vid = v.get("id")
+                seq = v.get("number")
+
+                for ch in v.get("chapters") or []:
+                    cid = ch.get("id")
+                    if cid is None:
+                        continue
+
+                    files = ch.get("files") or []
+                    path = files[0].get("filePath", "") if files else ""
+
+                    title = path.rsplit("/", 1)[-1]
+                    if "." in title:
+                        title = title.rsplit(".", 1)[0]
+
+                    for suffix in (" (epub)", " (pdf)", " (mobi)", " (azw3)"):
+                        if title.lower().endswith(suffix):
+                            title = title[:-len(suffix)]
+
+                    title = title.strip() or series
+
+                    out.append(self._tag({
+                        "item_id": f"kavita:{sid}:{vid}:{cid}",
+                        "library_id": str(s.get("libraryId", "")),
+                        "title": title,
+                        "author": "",
+                        "asin": "",
+                        "series": series,
+                        "series_seq": seq,
+                        "narrator": "",
+                    }))
+                    emitted = True
+
+            if not emitted:
+                out.append(self._tag({
+                    "item_id": f"kavita:{sid}",
+                    "library_id": str(s.get("libraryId", "")),
+                    "title": series,
+                    "author": "",
+                    "asin": "",
+                    "series": series,
+                    "series_seq": None,
+                    "narrator": "",
+                }))
+
         return out
 
     def reading_history(self, user: dict) -> list[dict]:
-        """Series with reading progress, recent first. Finished = read to the
-        last page. (Uses the connected Kavita account, see module docstring.)"""
-        # multi-user: one shared API key can't be attributed per-user — don't leak
-        # this account's reads into every user's seeds/Insights (matches komga/calibreweb).
         if db.user_count() > 1:
             return []
+
         out = []
+
         for s in self._all_series():
-            read = s.get("pagesRead") or 0
-            if read <= 0:
+            sid = s.get("id")
+            if sid is None:
                 continue
-            pages = s.get("pages") or 0
-            out.append({
-                "item_id": f"kavita:{s.get('id')}",
-                "finished": bool(pages and read >= pages),
-                "progress": (read / pages) if pages else 0.0,
-                # only a real read timestamp — NOT lastChapterAddedUtc (a library-add
-                # time), which would mis-date the read and skew recency/heatmap.
-                "last_update": _parse_dt(s.get("latestReadDate") or ""),
-            })
+
+            try:
+                r = self._get("/api/Series/volumes", params={"seriesId": sid})
+                r.raise_for_status()
+                volumes = r.json() or []
+            except Exception as e:
+                log.warning("kavita history volumes failed for %s: %s", sid, e)
+                continue
+
+            for v in volumes:
+                vid = v.get("id")
+                if vid is None:
+                    continue
+
+                for ch in v.get("chapters") or []:
+                    cid = ch.get("id")
+                    if cid is None:
+                        continue
+
+                    try:
+                        r = self._get("/api/Reader/get-progress",
+                                      params={"chapterId": cid})
+                        if r.status_code != 200:
+                            continue
+                        progress = r.json() or {}
+                    except Exception:
+                        continue
+
+                    page = progress.get("pageNum") or 0
+                    if page <= 0:
+                        continue
+
+                    pages = max(
+                        [int(f.get("pages") or 0)
+                         for f in (ch.get("files") or [])] or [0]
+                    )
+
+                    out.append({
+                        "item_id": f"kavita:{sid}:{vid}:{cid}",
+                        "finished": bool(pages and page >= pages),
+                        "progress": min(page / pages, 1.0) if pages else 0.0,
+                        "last_update": _parse_dt(
+                            progress.get("lastModifiedUtc") or ""
+                        ),
+                    })
+
         out.sort(key=lambda x: x["last_update"], reverse=True)
         return out
+
