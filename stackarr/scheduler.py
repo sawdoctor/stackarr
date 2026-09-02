@@ -2,13 +2,223 @@
 deletions -> negative taste signals), flips requests to 'available' when
 they appear in the library, runs the per-user recommender on its interval,
 and sends digests. Survives individual failures; daemon thread."""
+import json
 import logging
 import threading
 import time
 
-from . import absclient, backends, config, db, formats, notify, recommend
+from . import absclient, backends, config, db, formats, notify, recommend, shelfmark
 
 log = logging.getLogger("stackarr.scheduler")
+
+_EBOOK_RETRY_POLL_SECONDS = 60
+
+
+def _parse_attempted_refs(raw):
+    try:
+        values = json.loads(raw or "[]")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+
+    if not isinstance(values, list):
+        return []
+
+    out = []
+    for value in values:
+        ref = str(value or "").strip()
+        if ref and ref not in out:
+            out.append(ref)
+    return out
+
+
+def reconcile_ebook_acquisitions():
+    """Retry a failed Shelfmark ebook grab with the next untried release."""
+    statuses = shelfmark.task_statuses()
+    if not statuses:
+        return
+
+    with db.conn() as c:
+        rows = [
+            dict(r)
+            for r in c.execute(
+                "SELECT id,asin,title,author,status,detail,chaptarr_ref,attempted_refs "
+                "FROM requests "
+                "WHERE format='ebook' "
+                "AND status IN ('queued','handed') "
+                "AND chaptarr_ref IS NOT NULL "
+                "AND chaptarr_ref<>''"
+            )
+        ]
+
+    for row in rows:
+        current_ref = str(row.get("chaptarr_ref") or "").strip()
+        task = statuses.get(current_ref)
+
+        if not isinstance(task, dict):
+            continue
+
+        state = str(task.get("state") or "").strip().lower()
+
+        # Recover from an explicitly foreign-language release that completed
+        # before the language guard was introduced.
+        rejected_language = ""
+        if state == "complete":
+            rejected_language = shelfmark.explicit_foreign_language(
+                str(task.get("title") or ""),
+                row["title"],
+            )
+            if rejected_language:
+                state = "error"
+
+        # A deliberate cancellation must never cause Stackarr to grab another copy.
+        if state == "cancelled":
+            reason = str(task.get("status_message") or "Cancelled in Shelfmark")
+            with db.conn() as c:
+                c.execute(
+                    "UPDATE requests "
+                    "SET status='failed',detail=?,updated_at=datetime('now','localtime') "
+                    "WHERE id=?",
+                    (reason, row["id"]),
+                )
+            continue
+
+        if state != "error":
+            continue
+
+        if rejected_language:
+            reason = (
+                f"Release was explicitly marked {rejected_language.upper()}, "
+                "so it was rejected for the English ebook library."
+            )
+        else:
+            reason = str(
+                task.get("status_message") or "Shelfmark download failed"
+            ).strip()
+
+        attempted = _parse_attempted_refs(row.get("attempted_refs"))
+
+        if current_ref not in attempted:
+            attempted.append(current_ref)
+
+        # Persist the failed release before doing any network work.
+        with db.conn() as c:
+            c.execute(
+                "UPDATE requests SET attempted_refs=?,updated_at=datetime('now','localtime') "
+                "WHERE id=?",
+                (json.dumps(attempted), row["id"]),
+            )
+
+        # Exclude both exact task IDs and equivalent release titles.
+        # The same NZB can be exposed by multiple indexers under different IDs.
+        excluded_titles = set()
+
+        for attempted_ref in attempted:
+            attempted_task = statuses.get(attempted_ref)
+            if not isinstance(attempted_task, dict):
+                continue
+
+            attempted_title = str(attempted_task.get("title") or "").strip()
+            if attempted_title:
+                excluded_titles.add(attempted_title)
+
+        current_release_title = str(task.get("title") or "").strip()
+        if current_release_title:
+            excluded_titles.add(current_release_title)
+
+        res = shelfmark.add_and_search(
+            row["title"],
+            row.get("author", ""),
+            row.get("asin", ""),
+            fmt="ebook",
+            excluded_refs=set(attempted),
+            excluded_titles=excluded_titles,
+        )
+
+        if res.get("ok"):
+            new_ref = str(res.get("ref") or "").strip()
+
+            if not new_ref or new_ref in attempted:
+                with db.conn() as c:
+                    c.execute(
+                        "UPDATE requests "
+                        "SET status='failed',detail=?,updated_at=datetime('now','localtime') "
+                        "WHERE id=?",
+                        (
+                            "Shelfmark reported a fallback grab but did not return "
+                            "a new unique release ID.",
+                            row["id"],
+                        ),
+                    )
+                continue
+
+            attempted.append(new_ref)
+
+            with db.conn() as c:
+                c.execute(
+                    "UPDATE requests "
+                    "SET status='handed',detail=?,chaptarr_ref=?,attempted_refs=?,"
+                    "updated_at=datetime('now','localtime') "
+                    "WHERE id=?",
+                    (
+                        f"Previous release failed: {reason}. {res.get('detail', '')}",
+                        new_ref,
+                        json.dumps(attempted),
+                        row["id"],
+                    ),
+                )
+
+            log.info(
+                "ebook request %s fallback queued ref=%s after failure=%s",
+                row["id"],
+                new_ref,
+                reason,
+            )
+            continue
+
+        retry_detail = str(res.get("detail") or "").strip()
+
+        # "Nothing was queued" means the candidate set is genuinely exhausted.
+        exhausted = (
+            "nothing was queued" in retry_detail.lower()
+            or "none passed" in retry_detail.lower()
+        )
+
+        if exhausted:
+            with db.conn() as c:
+                c.execute(
+                    "UPDATE requests "
+                    "SET status='failed',detail=?,updated_at=datetime('now','localtime') "
+                    "WHERE id=?",
+                    (
+                        f"Release failed: {reason}. "
+                        f"No untried acceptable ebook release remains. {retry_detail}",
+                        row["id"],
+                    ),
+                )
+        else:
+            # Shelfmark/Prowlarr may simply be temporarily unavailable.
+            # Leave the request handed so the one-minute worker can try again.
+            with db.conn() as c:
+                c.execute(
+                    "UPDATE requests "
+                    "SET detail=?,updated_at=datetime('now','localtime') "
+                    "WHERE id=?",
+                    (
+                        f"Release failed: {reason}. "
+                        f"Automatic fallback delayed: {retry_detail}",
+                        row["id"],
+                    ),
+                )
+
+
+def _ebook_acquisition_loop():
+    while True:
+        try:
+            reconcile_ebook_acquisitions()
+        except Exception as exc:
+            log.warning("ebook acquisition reconciliation failed: %s", exc)
+
+        time.sleep(_EBOOK_RETRY_POLL_SECONDS)
 
 
 def import_users() -> dict:
@@ -348,5 +558,19 @@ def _daily_user_sync():
 
 
 def start():
+    # Reconcile ebook acquisition first so a completed but rejected release
+    # cannot be accepted by the library refresh during startup.
+    try:
+        reconcile_ebook_acquisitions()
+    except Exception as exc:
+        log.warning("startup ebook acquisition reconciliation failed: %s", exc)
+
+    threading.Thread(
+        target=_ebook_acquisition_loop,
+        name="stackarr-ebook-acquisition",
+        daemon=True,
+    ).start()
+
     threading.Thread(target=_loop, name="stackarr-worker", daemon=True).start()
+
     log.info("background worker started (every %d min)", config.LIBRARY_REFRESH_MINUTES)

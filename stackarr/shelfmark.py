@@ -69,9 +69,59 @@ def can_grab(title: str, author: str) -> bool:
     return configured()
 
 
+def task_statuses() -> dict[str, dict[str, Any]]:
+    """Return Shelfmark activity indexed by its exact task/source ID."""
+    try:
+        session = _session()
+        r = session.get(
+            f"{url()}/api/activity/snapshot",
+            timeout=_API_TIMEOUT,
+        )
+        if not r.ok:
+            raise ShelfmarkError(
+                f"Shelfmark activity returned HTTP {r.status_code}."
+            )
+
+        data = r.json()
+        buckets = data.get("status") if isinstance(data, dict) else None
+        if not isinstance(buckets, dict):
+            return {}
+
+        out: dict[str, dict[str, Any]] = {}
+
+        for state, entries in buckets.items():
+            if not isinstance(entries, dict):
+                continue
+
+            for task_id, payload in entries.items():
+                item = dict(payload) if isinstance(payload, dict) else {}
+                item["state"] = str(state).strip().lower()
+                out[str(task_id)] = item
+
+        return out
+
+    except (requests.RequestException, ValueError, ShelfmarkError) as exc:
+        log.warning("ebook Shelfmark activity lookup failed: %s", exc)
+        return {}
+
+
 def queue_status() -> dict[str, str]:
-    '''Initial adapter does not infer request status from Shelfmark yet.'''
-    return {}
+    """Compatibility status map keyed by exact Shelfmark task/source ID."""
+    out: dict[str, str] = {}
+
+    for task_id, item in task_statuses().items():
+        state = str(item.get("state") or "").lower()
+
+        if state == "error":
+            out[task_id] = "failed"
+        elif state == "cancelled":
+            out[task_id] = "failed"
+        else:
+            # Shelfmark completion still waits for Kavita/library reconciliation
+            # before Stackarr declares the request available.
+            out[task_id] = "handed"
+
+    return out
 
 
 def health() -> list[dict[str, str]]:
@@ -131,6 +181,56 @@ def _norm(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (value or "").lower()).strip()
 
 
+_FOREIGN_LANGUAGE_MARKERS = {
+    "arabic",
+    "chinese",
+    "czech",
+    "danish",
+    "dutch",
+    "finnish",
+    "french",
+    "german",
+    "greek",
+    "hebrew",
+    "hungarian",
+    "indonesian",
+    "italian",
+    "japanese",
+    "korean",
+    "norwegian",
+    "polish",
+    "portuguese",
+    "romanian",
+    "russian",
+    "spanish",
+    "swedish",
+    "thai",
+    "turkish",
+    "vietnamese",
+}
+
+
+def explicit_foreign_language(release_title: str, wanted_title: str) -> str:
+    """Return an explicit non-English release-language marker, if present.
+
+    Remove the requested book title first so a legitimate title containing
+    words such as 'French' is not accidentally rejected.
+    """
+    release_key = _norm(release_title)
+    wanted_key = _norm(wanted_title)
+
+    if wanted_key and wanted_key in release_key:
+        release_key = release_key.replace(wanted_key, " ", 1)
+
+    tokens = set(release_key.split())
+
+    for marker in sorted(_FOREIGN_LANGUAGE_MARKERS):
+        if marker in tokens:
+            return marker
+
+    return ""
+
+
 def _release_format(release: dict[str, Any]) -> str:
     values: list[str] = []
 
@@ -164,6 +264,9 @@ def _score_release(release: dict[str, Any], title: str, author: str) -> int | No
     release_title = _norm(str(release.get("title") or ""))
     wanted_title = _norm(title)
     if not wanted_title or wanted_title not in release_title:
+        return None
+
+    if explicit_foreign_language(str(release.get("title") or ""), title):
         return None
 
     if str(release.get("source") or "").strip().lower() != source():
@@ -210,13 +313,32 @@ def _score_release(release: dict[str, Any], title: str, author: str) -> int | No
 
 
 def _choose_release(
-    releases: list[dict[str, Any]], title: str, author: str
+    releases: list[dict[str, Any]],
+    title: str,
+    author: str,
+    excluded_refs: set[str] | None = None,
+    excluded_titles: set[str] | None = None,
 ) -> tuple[dict[str, Any] | None, int]:
     ranked: list[tuple[int, int, dict[str, Any]]] = []
+    excluded_refs = excluded_refs or set()
+    excluded_title_keys = {
+        _norm(value)
+        for value in (excluded_titles or set())
+        if _norm(value)
+    }
 
     for idx, release in enumerate(releases):
         if not isinstance(release, dict):
             continue
+
+        release_ref = str(release.get("source_id") or "").strip()
+        if release_ref and release_ref in excluded_refs:
+            continue
+
+        release_title_key = _norm(str(release.get("title") or ""))
+        if release_title_key and release_title_key in excluded_title_keys:
+            continue
+
         score = _score_release(release, title, author)
         if score is None or score < 0:
             continue
@@ -337,6 +459,13 @@ def _download_release(
             if value is not None and str(value).strip():
                 return str(value)
 
+    # Shelfmark v1.3.13 returns only {"status": "queued", "priority": ...}
+    # from /api/releases/download. The release source_id is the exact task ID
+    # Shelfmark uses in its queue/activity API, so preserve that as our ref.
+    source_id = payload.get("source_id")
+    if source_id is not None and str(source_id).strip():
+        return str(source_id)
+
     return ""
 
 
@@ -373,6 +502,8 @@ def add_and_search(
     asin: str = "",
     fmt: str = "ebook",
     root_folder_override: str = "",
+    excluded_refs: set[str] | None = None,
+    excluded_titles: set[str] | None = None,
 ) -> dict[str, Any]:
     '''Search once, select one conservative NZB ebook release, queue it once.'''
     del asin, root_folder_override
@@ -408,7 +539,11 @@ def add_and_search(
         for search_title in search_titles:
             releases = _search_once(session, search_title, author)
             chosen, candidate_count = _choose_release(
-                releases, search_title, author
+                releases,
+                search_title,
+                author,
+                excluded_refs=excluded_refs,
+                excluded_titles=excluded_titles,
             )
             searches.append((search_title, len(releases), candidate_count))
 

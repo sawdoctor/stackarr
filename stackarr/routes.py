@@ -1,5 +1,6 @@
 """Routes: pages + the JSON API the front-end uses. Approval, manual
 'already read', 5-star ratings, discover, settings, email preview, health."""
+import json
 import logging
 import re
 
@@ -1582,7 +1583,13 @@ def _queue_for_approval(user, item, source):
     return {"ok": True, "pending": True, "detail": "Request sent — an admin will approve it shortly."}
 
 
-def _acquisition_handoff(title, author, asin="", fmt="audiobook"):
+def _acquisition_handoff(
+    title,
+    author,
+    asin="",
+    fmt="audiobook",
+    excluded_refs=None,
+):
     """Single acquisition dispatcher for the controlled migration.
 
     Ebooks go to the separate ebook Shelfmark.
@@ -1596,6 +1603,7 @@ def _acquisition_handoff(title, author, asin="", fmt="audiobook"):
             author,
             asin,
             fmt="ebook",
+            excluded_refs=excluded_refs,
         )
 
     if fmt == "audiobook":
@@ -1668,11 +1676,28 @@ def _hand_off_request(user_id, book, source):
         fmt=fmt,
     )
     status = "handed" if res["ok"] else "failed"
+    ref = str(res.get("ref") or "").strip()
+    attempted_refs = [ref] if fmt == "ebook" and ref else []
+
     with db.conn() as c:
-        c.execute("INSERT INTO requests (user_id,asin,title,author,cover,status,detail,chaptarr_ref,source,format) "
-                  "VALUES (?,?,?,?,?,?,?,?,?,?)",
-                  (user_id, book.get("asin", ""), book["title"], book.get("author", ""),
-                   book.get("cover", ""), status, res.get("detail", ""), res.get("ref", ""), source, fmt))
+        c.execute(
+            "INSERT INTO requests "
+            "(user_id,asin,title,author,cover,status,detail,chaptarr_ref,attempted_refs,source,format) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                user_id,
+                book.get("asin", ""),
+                book["title"],
+                book.get("author", ""),
+                book.get("cover", ""),
+                status,
+                res.get("detail", ""),
+                ref,
+                json.dumps(attempted_refs),
+                source,
+                fmt,
+            ),
+        )
     return res
 
 
@@ -1921,12 +1946,15 @@ def api_requests_status():
     u = auth.current_user()
     with db.conn() as c:
         rows = [dict(r) for r in c.execute(
-            "SELECT id,title,status FROM requests WHERE user_id=? AND status IN ('queued','handed')", (u["id"],))]
+            "SELECT id,title,status,chaptarr_ref FROM requests "
+            "WHERE user_id=? AND status IN ('queued','handed')",
+            (u["id"],),
+        )]
     live = shelfmark.queue_status() if rows else {}
     out = {}
     for r in rows:
-        t = (r["title"] or "").lower().strip()
-        hit = next((v for k, v in live.items() if t and (t in k or k in t)), None)
+        ref = str(r.get("chaptarr_ref") or "").strip()
+        hit = live.get(ref) if ref else None
         out[r["id"]] = hit or r["status"]
     return jsonify(out)
 

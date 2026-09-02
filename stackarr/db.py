@@ -63,7 +63,8 @@ CREATE TABLE IF NOT EXISTS requests (
   status TEXT NOT NULL DEFAULT 'queued',       -- queued | handed | available | failed
   detail TEXT DEFAULT '',
   format TEXT DEFAULT 'audiobook',             -- audiobook | ebook
-  chaptarr_ref TEXT DEFAULT '',                -- chaptarr author/book id
+  chaptarr_ref TEXT DEFAULT '',                -- current acquisition task/release id
+  attempted_refs TEXT DEFAULT '[]',             -- JSON list of acquisition ids already tried
   source TEXT DEFAULT 'suggestion',            -- suggestion | manual | importlist
   created_at TEXT DEFAULT (datetime('now','localtime')),
   updated_at TEXT DEFAULT (datetime('now','localtime'))
@@ -172,6 +173,7 @@ def init():
                      "ALTER TABLE library ADD COLUMN source TEXT DEFAULT 'abs'",
                      "ALTER TABLE suggestions ADD COLUMN format TEXT DEFAULT 'audiobook'",
                      "ALTER TABLE requests ADD COLUMN format TEXT DEFAULT 'audiobook'",
+                     "ALTER TABLE requests ADD COLUMN attempted_refs TEXT DEFAULT '[]'",
                      "ALTER TABLE ratings ADD COLUMN review TEXT DEFAULT ''",
                      "ALTER TABLE ratings ADD COLUMN format TEXT DEFAULT 'audiobook'",
                      "ALTER TABLE ratings ADD COLUMN updated_at TEXT",
