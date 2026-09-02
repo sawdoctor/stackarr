@@ -324,6 +324,16 @@ def refresh_library():
             if lib.startswith(req + " (") or lib.startswith(req + " ["):
                 return True
 
+            # Kavita may append the generic metadata subtitle ": A Novel".
+            # Keep this deliberately narrow so titles such as "Dune" do not
+            # incorrectly match distinct works such as "Dune: Messiah".
+            if (
+                lib == req + ": a novel"
+                or lib.startswith(req + ": a novel (")
+                or lib.startswith(req + ": a novel [")
+            ):
+                return True
+
             # Audiobookshelf commonly prefixes series/book information, e.g.
             # "Arcane Ascension, Book 1 - Sufficiently Advanced Magic".
             # The availability loop separately requires matching author + format.
