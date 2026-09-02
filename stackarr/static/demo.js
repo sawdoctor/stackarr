@@ -5,7 +5,7 @@
   // so we must override that same binding the inline page scripts call.
   if (typeof Stackarr === "undefined") return;
   var S = Stackarr;
-  var MSG = "Static demo — install Stackarr and connect Audiobookshelf + Chaptarr to add real books.";
+  var MSG = "Static demo — install Stackarr and connect Audiobookshelf + Shelfmark to add real books.";
   function toast(m) {
     var t = document.getElementById("toast");
     if (!t) { alert(m); return; }

@@ -94,9 +94,9 @@
         {% if is_admin %}<button class="btn" onclick="Stackarr.saveCategory('suggest', this)">Save</button>{% endif %}
       </div>
       {% if is_admin %}
-      <div class="panel"><h3>Auto-add to Chaptarr</h3>
-        <p class="muted">Let Stackarr hand high-confidence picks to Chaptarr automatically, with no manual approval.
-          Off by default. It skips books you already own, caps how many it adds per cycle, and pauses if Chaptarr can't add right now.</p>
+      <div class="panel"><h3>Auto-add to Shelfmark</h3>
+        <p class="muted">Let Stackarr hand high-confidence picks to Shelfmark automatically, with no manual approval.
+          Off by default. It skips books you already own, caps how many it adds per cycle, and pauses if Shelfmark can't add right now.</p>
         <label class="row"><span>Auto-approval level</span>
           <select onchange="Stackarr.setSetting({auto_add_level: this.value})">
             <option value="off" {{ 'selected' if auto_add_level=='off' }}>Off — I approve everything myself</option>
@@ -160,7 +160,7 @@
         <div class="conn-actions"><button class="btn small ghost" onclick="Stackarr.testConn('abs', this)">Test</button>
           <span class="conn-result" id="test-abs"></span></div>
       </div>
-      <div class="panel"><h3>Chaptarr</h3>
+      <div class="panel"><h3>Shelfmark</h3>
         <label class="row"><span>URL</span><input data-setting="chaptarr_url" value="{{ conn.chaptarr_url }}"></label>
         <label class="row"><span>API key</span><input type="password" data-setting="chaptarr_api_key" value="{{ conn.chaptarr_api_key }}"></label>
         <label class="row"><span>Root folder</span><input data-setting="chaptarr_root_folder" value="{{ conn.chaptarr_root_folder }}"></label>
@@ -168,8 +168,8 @@
         <label class="row"><span>Metadata profile id</span><input type="number" data-setting="chaptarr_metadata_profile_id" value="{{ conn.chaptarr_metadata_profile_id }}"></label>
         <div class="conn-actions"><button class="btn small ghost" onclick="Stackarr.testConn('chaptarr', this)">Test</button>
           <span class="conn-result" id="test-chaptarr"></span></div>
-        <p class="muted" style="margin-top:12px">Optional — real-time status: in <b>Chaptarr → Settings → Connect → + → Webhook</b>,
-          set the URL below (triggers: On Grab, On Import). Stackarr then flips requests to Available the moment Chaptarr imports them.</p>
+        <p class="muted" style="margin-top:12px">Optional — real-time status: in <b>Shelfmark → Settings → Connect → + → Webhook</b>,
+          set the URL below (triggers: On Grab, On Import). Stackarr then flips requests to Available the moment Shelfmark imports them.</p>
         <label class="row"><span>Webhook URL</span><input readonly onclick="this.select()"
           value="{{ (conn.public_url or 'http://YOUR-STACKARR-HOST:8484') }}/api/webhook/chaptarr?token={{ conn.chaptarr_webhook_token }}"></label>
       </div>
@@ -371,7 +371,7 @@
     <div class="settings-cat" id="cat-about">
       <div class="panel"><h3>About</h3>
         <p class="muted">{{ app_name }} v{{ version }} · {{ stage }}</p>
-        <p class="muted">An audiobook recommendation add-on for Chaptarr. Vibecoded.</p>
+        <p class="muted">An audiobook recommendation add-on for Shelfmark. Vibecoded.</p>
       </div>
     </div>
 

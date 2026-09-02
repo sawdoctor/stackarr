@@ -77,14 +77,14 @@ SHELFMARK_EBOOK_USERNAME = os.environ.get("SHELFMARK_EBOOK_USERNAME", "")
 SHELFMARK_EBOOK_PASSWORD = os.environ.get("SHELFMARK_EBOOK_PASSWORD", "")
 SHELFMARK_EBOOK_SOURCE = os.environ.get("SHELFMARK_EBOOK_SOURCE", "prowlarr").strip().lower()
 
-# --- Chaptarr (downstream: approved picks are handed here to grab) -----------
+# --- Shelfmark (downstream: approved picks are handed here to grab) -----------
 CHAPTARR_URL = os.environ.get("CHAPTARR_URL", "").rstrip("/")
 CHAPTARR_API_KEY = os.environ.get("CHAPTARR_API_KEY", "")
-# Root folder + profile ids Chaptarr should use when Stackarr adds a book.
+# Root folder + profile ids Shelfmark should use when Stackarr adds a book.
 CHAPTARR_ROOT_FOLDER = os.environ.get("CHAPTARR_ROOT_FOLDER", "")
 CHAPTARR_QUALITY_PROFILE_ID = int(os.environ.get("CHAPTARR_QUALITY_PROFILE_ID", "2"))
 CHAPTARR_METADATA_PROFILE_ID = int(os.environ.get("CHAPTARR_METADATA_PROFILE_ID", "1"))
-# Ebook handoff uses its own Chaptarr profile pair (Chaptarr defaults:
+# Ebook handoff uses its own Shelfmark profile pair (Shelfmark defaults:
 # E-Book quality=1, Ebook-Default metadata=2).
 CHAPTARR_EBOOK_QUALITY_PROFILE_ID = int(os.environ.get("CHAPTARR_EBOOK_QUALITY_PROFILE_ID", "1"))
 CHAPTARR_EBOOK_METADATA_PROFILE_ID = int(os.environ.get("CHAPTARR_EBOOK_METADATA_PROFILE_ID", "2"))

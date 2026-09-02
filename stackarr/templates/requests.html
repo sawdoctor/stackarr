@@ -9,7 +9,7 @@
       <a class="btn small ghost {{ 'on' if not wanted }}" href="{{ url_for('main.requests_page') }}">All</a>
       <a class="btn small ghost {{ 'on' if wanted }}" href="?wanted=1">Wanted</a>
       {% if admin %}<a class="btn small ghost" href="?all=1">All users</a>{% endif %}
-      <button class="btn small ghost" onclick="Stackarr.checkLibraries(this)" title="Re-scan your libraries for books added outside Chaptarr">↻ Check libraries</button>
+      <button class="btn small ghost" onclick="Stackarr.checkLibraries(this)" title="Re-scan your libraries for books added outside Shelfmark">↻ Check libraries</button>
       {% if requests | selectattr('status', 'equalto', 'failed') | list | length %}
       <button class="btn small" onclick="Stackarr.retryAll(this)">↻ Retry all failed</button>
       {% endif %}

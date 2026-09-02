@@ -1323,7 +1323,7 @@ def _owned(c, asin, title, author, fmt=None) -> bool:
 
 
 def _ensure_webhook_token() -> str:
-    """A stable per-install token for the Chaptarr Connect webhook URL."""
+    """A stable per-install token for the Shelfmark Connect webhook URL."""
     import secrets
     t = db.get_meta("chaptarr_webhook_token", "")
     if not t:
@@ -1495,7 +1495,7 @@ def api_markread_book():
                       (u["id"], "asin", asin, -1, f"already read: {title}"))
             c.execute("UPDATE suggestions SET status='rejected' WHERE user_id=? AND asin=? AND status='pending'",
                       (u["id"], asin))
-    # Propagate: mark finished in ABS (if in this user's library) + unmonitor in Chaptarr.
+    # Propagate: mark finished in ABS (if in this user's library) + unmonitor in Shelfmark.
     abs_finished, chaptarr_unmonitored = False, False
     tok = u.get("abs_token")
     if tok and title:
@@ -1550,7 +1550,7 @@ def _base_url() -> str:
 
 # Lightweight in-process cooldown for the expensive endpoints (library re-scan,
 # recommender run). Keyed per user so one account can't hammer the shared
-# ABS/Chaptarr scans; in-memory is fine on single-process waitress.
+# ABS/Shelfmark scans; in-memory is fine on single-process waitress.
 _LAST_HEAVY: dict = {}
 
 
@@ -1659,9 +1659,9 @@ def _hand_off_request(user_id, book, source):
                 "detail": "Already requested — no new search performed.",
             }
 
-    # Bypass Chaptarr if the book is already in a connected library (the user may
+    # Bypass Shelfmark if the book is already in a connected library (the user may
     # have added it straight to Audiobookshelf / Kavita / Calibre-Web). Record it
-    # as available rather than redundantly asking Chaptarr to grab it.
+    # as available rather than redundantly asking Shelfmark to grab it.
     with db.conn() as c:
         if _owned(c, book.get("asin", ""), book.get("title", ""), book.get("author", ""), fmt=fmt):
             c.execute("INSERT INTO requests (user_id,asin,title,author,cover,status,detail,source,format) "
@@ -1763,7 +1763,7 @@ def api_suggestion(sid, verdict):
 def api_mark_read():
     """Manually tell Stackarr you've already read a title — positive taste
     seed, no download. Also writes finished to ABS (if it's in this user's
-    library) and unmonitors it in Chaptarr so it won't be grabbed."""
+    library) and unmonitors it in Shelfmark so it won't be grabbed."""
     u = auth.current_user()
     body = request.get_json(force=True)
     title, authr = body.get("title", "").strip(), body.get("author", "").strip()
@@ -1789,7 +1789,7 @@ def api_mark_read():
     cover = b.get("cover") or body.get("cover", "")
     db.shelf_set(u["id"], rk, "read", b.get("title", title), b.get("author", authr), cover, fmt)
     # Propagate outward: mark finished in ABS (if it's in this user's library) and
-    # unmonitor it in Chaptarr (don't grab what you've already read).
+    # unmonitor it in Shelfmark (don't grab what you've already read).
     abs_finished, chaptarr_unmonitored = False, False
     mt, ma = b.get("title", title), b.get("author", authr)
     tok = u.get("abs_token")
@@ -1941,7 +1941,7 @@ def api_onboard_dismiss():
 @bp.route("/api/requests/status")
 @auth.login_required
 def api_requests_status():
-    """Live per-request status, merging the stored status with Chaptarr's queue
+    """Live per-request status, merging the stored status with Shelfmark's queue
     (downloading / importing) so the Requests page shows real progress."""
     u = auth.current_user()
     with db.conn() as c:
@@ -1961,7 +1961,7 @@ def api_requests_status():
 
 @bp.route("/api/webhook/chaptarr", methods=["POST"])
 def api_webhook_chaptarr():
-    """Chaptarr Connect webhook → real-time request updates. Token-protected via
+    """Shelfmark Connect webhook → real-time request updates. Token-protected via
     ?token= (set the same token in Settings). On an import/download event we run
     the library refresh, which flips a request to 'available' ONLY when the book
     actually appears in the library in that request's format, and notifies the
@@ -2017,7 +2017,7 @@ def api_request_approve(rid):
     res = (rmap[fmts[0]] if len(fmts) == 1
            else {"ok": ok_any, "ref": "", "detail": (f"Sent as {' + '.join(oks)}." if oks
                   else rmap[fmts[-1]].get("detail", "Couldn't add right now."))})
-    # a transient Chaptarr outage (retry) must keep the row re-approvable, not
+    # a transient Shelfmark outage (retry) must keep the row re-approvable, not
     # burn the admin's approval into a 'failed' state that can't be re-approved.
     retryable = not ok_any and any(r.get("retry") for r in rmap.values())
     status = "handed" if ok_any else ("pending_approval" if retryable else "failed")
@@ -2058,7 +2058,7 @@ def api_request_deny(rid):
 @auth.login_required
 def api_requests_check():
     """Re-scan all connected libraries now and flip any request to 'available'
-    if its book has appeared (e.g. the user added it outside Chaptarr). Returns
+    if its book has appeared (e.g. the user added it outside Shelfmark). Returns
     how many flipped."""
     wait = _cooldown("requests_check", 20)
     if wait:
@@ -2084,7 +2084,7 @@ def api_requests_check():
 @bp.route("/api/requests/retry-all", methods=["POST"])
 @auth.login_required
 def api_retry_all():
-    """Re-send every failed request to Chaptarr in one go (the Wanted list)."""
+    """Re-send every failed request to Shelfmark in one go (the Wanted list)."""
     u = auth.current_user()
     with db.conn() as c:
         rows = [dict(r) for r in c.execute(

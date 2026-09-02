@@ -181,7 +181,7 @@ const Stackarr = (() => {
     async addAllByAuthor(author, btn) {
       btn.disabled = true; btn.textContent = "Adding…";
       const r = await api("/api/author/add", { method: "POST", body: JSON.stringify({ author }) });
-      btn.textContent = r && r.ok ? "Added to Chaptarr" : "Failed";
+      btn.textContent = r && r.ok ? "Added to Shelfmark" : "Failed";
       if (r) toast(r.detail || "Done.");
     },
     toggleNav() {
@@ -220,7 +220,7 @@ const Stackarr = (() => {
       if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
       const r = await api("/api/series/add", { method: "POST", body: JSON.stringify({ series: name, author, format }) });
       if (!r) { if (btn) { btn.disabled = false; btn.textContent = label || "＋ Get full series"; } return; }   // 401 → api() redirected
-      toast(r.detail || (r.ok ? "Sent to Chaptarr." : "Couldn't add right now."));
+      toast(r.detail || (r.ok ? "Sent to Shelfmark." : "Couldn't add right now."));
       if (btn) { btn.disabled = false; btn.textContent = r.ok ? "✓ Requested" : (label || "＋ Get full series"); }
     },
     toggleTheme() {
@@ -252,7 +252,7 @@ const Stackarr = (() => {
       if (card) { card.style.transition = "opacity .3s, transform .3s"; card.style.opacity = .25; card.style.transform = "scale(.9)"; }
       else setTimeout(() => location.reload(), 600);
       toast(verdict === "approve"
-        ? (res.ok ? "Approved — sent to Chaptarr." : "Approved, but: " + (res.detail || "handoff failed"))
+        ? (res.ok ? "Approved — sent to Shelfmark." : "Approved, but: " + (res.detail || "handoff failed"))
         : verdict === "read" ? "Marked as read — your picks will improve."
         : "Ignored — you won't see this again.");
     },

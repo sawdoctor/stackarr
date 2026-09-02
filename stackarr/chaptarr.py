@@ -1,6 +1,6 @@
-"""Chaptarr handoff. When a suggestion is approved, Stackarr asks Chaptarr
+"""Shelfmark handoff. When a suggestion is approved, Stackarr asks Shelfmark
 (the *arr book backend) to add the author/book and search for it. Stackarr
-never touches a download client directly — Chaptarr owns grab/import."""
+never touches a download client directly — Shelfmark owns grab/import."""
 import logging
 import re
 import time
@@ -24,7 +24,7 @@ def root_folder() -> str:
     rf = db.setting("chaptarr_root_folder", config.CHAPTARR_ROOT_FOLDER)
     # Guard against Git-Bash path mangling (a unix /path passed through Git Bash
     # at container-create time becomes "C:/Program Files/Git/path"). Recover the
-    # real container path so Chaptarr doesn't reject it as an invalid path.
+    # real container path so Shelfmark doesn't reject it as an invalid path.
     m = re.search(r"/Git(/.*)$", rf)
     if rf.startswith("C:") and "Program Files/Git" in rf and m:
         rf = m.group(1)
@@ -47,7 +47,7 @@ def configured() -> bool:
 
 
 def monitored_keys() -> set[str]:
-    """author names Chaptarr already manages, lowercased, for dedupe."""
+    """author names Shelfmark already manages, lowercased, for dedupe."""
     keys = set()
     try:
         for a in requests.get(f"{url()}/api/v1/author", headers=_h(), timeout=20).json():
@@ -58,7 +58,7 @@ def monitored_keys() -> set[str]:
 
 
 def health() -> list[dict]:
-    """Chaptarr's own health warnings (e.g. the api.chaptarr.com metadata
+    """Shelfmark's own health warnings (e.g. the api.chaptarr.com metadata
     outage) — surfaced in Stackarr's connection test so degraded metadata is
     visible. Each: {type, message}."""
     try:
@@ -69,7 +69,7 @@ def health() -> list[dict]:
 
 
 def can_grab(title: str, author: str) -> bool:
-    """Cheap pre-check: does Chaptarr's catalogue know this author/title? Lets
+    """Cheap pre-check: does Shelfmark's catalogue know this author/title? Lets
     the UI flag 'no releases yet' before queueing a dead-end."""
     if not configured():
         return False
@@ -118,8 +118,8 @@ def queue_status() -> dict:
 
 
 def _ensure_tag(label: str = "stackarr") -> int | None:
-    """Ensure a Chaptarr tag exists; return its id (so Stackarr-added books are
-    tagged for easy filtering in Chaptarr). Best-effort."""
+    """Ensure a Shelfmark tag exists; return its id (so Stackarr-added books are
+    tagged for easy filtering in Shelfmark). Best-effort."""
     try:
         for t in requests.get(f"{url()}/api/v1/tag", headers=_h(), timeout=15).json():
             if (t.get("label") or "").lower() == label:
@@ -135,7 +135,7 @@ def _norm(s: str) -> str:
 
 
 def _find_author(foreign_id: str, name: str) -> dict | None:
-    """Locate an author already in Chaptarr by foreign id (preferred) or name.
+    """Locate an author already in Shelfmark by foreign id (preferred) or name.
     Raises on a transport/HTTP error instead of swallowing it — otherwise a
     transient failure looks like 'author absent' and add_and_search POSTs a
     DUPLICATE author. The caller's outer try turns a raise into a clean retry."""
@@ -186,7 +186,7 @@ def _match_book(books: list[dict], title: str, asin: str) -> dict | None:
 
 def _ensure_media_monitored(author_obj: dict, media: str, rf: str,
                             qp: int | None = None, mp: int | None = None) -> None:
-    """Chaptarr's current schema gates book monitoring behind per-media author
+    """Shelfmark's current schema gates book monitoring behind per-media author
     monitoring (audiobook/ebookMonitorExisting + matching root folder + profiles).
     Make sure the active media type is fully set up — crucially when REUSING an
     author first added for the OTHER format, whose {media}RootFolderPath/profiles
@@ -212,9 +212,9 @@ def _ensure_media_monitored(author_obj: dict, media: str, rf: str,
 
 
 def mark_read(title: str, author: str) -> bool:
-    """A book you've already read shouldn't be grabbed. If Chaptarr is managing
+    """A book you've already read shouldn't be grabbed. If Shelfmark is managing
     it and the book is monitored, unmonitor it so it won't be searched/downloaded.
-    Best-effort; returns True only if something was actually unmonitored. Chaptarr
+    Best-effort; returns True only if something was actually unmonitored. Shelfmark
     has no 'read' state, so unmonitoring is the meaningful equivalent."""
     if not configured():
         return False
@@ -242,21 +242,21 @@ def mark_read(title: str, author: str) -> bool:
 
 def add_and_search(title: str, author: str, asin: str = "", fmt: str = "audiobook",
                    root_folder_override: str = "") -> dict:
-    """Ensure the author exists in Chaptarr (tagged 'stackarr'), then monitor +
+    """Ensure the author exists in Shelfmark (tagged 'stackarr'), then monitor +
     search. `fmt` (audiobook | ebook) decides the media type + profiles.
 
-    Chaptarr uses a media-split schema: monitoring lives in
+    Shelfmark uses a media-split schema: monitoring lives in
     audiobook/ebookMonitorExisting + audiobook/ebookRootFolderPath, NOT the
     generic monitored/rootFolderPath, and book monitoring is rejected unless the
     author is monitored for that media type. So we (1) add/find the author with
     the media-split fields set, (2) when the request names a specific title, pin
     that book and monitor+search just it (avoids grabbing the whole backlist),
     else fall back to monitoring all the author's books + an author search.
-    Returns {ok, ref, detail}. Fails gracefully if Chaptarr is unavailable."""
+    Returns {ok, ref, detail}. Fails gracefully if Shelfmark is unavailable."""
     if not configured():
-        return {"ok": False, "detail": "Stackarr isn't connected to Chaptarr yet — add it in Settings → Connections."}
+        return {"ok": False, "detail": "Stackarr isn't connected to Shelfmark yet — add it in Settings → Connections."}
     # Audiobook + ebook each have their own quality/metadata profile pair in
-    # Chaptarr; the active media type's pair becomes the author's primary.
+    # Shelfmark; the active media type's pair becomes the author's primary.
     ab_qp = _profile("chaptarr_quality_profile_id", config.CHAPTARR_QUALITY_PROFILE_ID)
     ab_mp = _profile("chaptarr_metadata_profile_id", config.CHAPTARR_METADATA_PROFILE_ID)
     eb_qp = _profile("chaptarr_ebook_quality_profile_id", config.CHAPTARR_EBOOK_QUALITY_PROFILE_ID)
@@ -272,20 +272,20 @@ def add_and_search(title: str, author: str, asin: str = "", fmt: str = "audioboo
         # miss, so a config error isn't reported to the user as "not found" and
         # auto_approve can tell "retry later" (stop) from "skip this one" (continue).
         if look.status_code >= 500:
-            return {"ok": False, "retry": True, "detail": "Chaptarr's book database is offline right now — we've kept this; try again shortly."}
+            return {"ok": False, "retry": True, "detail": "Shelfmark's book database is offline right now — we've kept this; try again shortly."}
         if look.status_code in (401, 403):
-            return {"ok": False, "detail": "Chaptarr rejected the API key — check Settings → Connections."}
+            return {"ok": False, "detail": "Shelfmark rejected the API key — check Settings → Connections."}
         if look.status_code == 429:
-            return {"ok": False, "retry": True, "detail": "Chaptarr is rate-limited right now — try again shortly."}
+            return {"ok": False, "retry": True, "detail": "Shelfmark is rate-limited right now — try again shortly."}
         results = look.json() if look.ok else []
         if not results:
-            return {"ok": False, "detail": f"Chaptarr couldn't find “{author or title}” in its catalogue."}
+            return {"ok": False, "detail": f"Shelfmark couldn't find “{author or title}” in its catalogue."}
         a = results[0]
         foreign_id = a.get("foreignAuthorId", "")
         author_obj = _find_author(foreign_id, a.get("authorName") or author)
         if author_obj is None:
             folder = a.get("folder") or a.get("authorName") or author
-            # Set BOTH the media-split fields (current Chaptarr) and the legacy
+            # Set BOTH the media-split fields (current Shelfmark) and the legacy
             # fields (older builds) so the handoff works across schema versions.
             a.update(
                 mediaType=media, selectedMediaType=media, lastSelectedMediaType=media,
@@ -301,9 +301,9 @@ def add_and_search(title: str, author: str, asin: str = "", fmt: str = "audioboo
                 # Don't auto-grab on add; we monitor + search precisely below.
                 addOptions={"monitor": "none", "searchForMissingBooks": False})
             # Pin the per-media root so the pick lands in the configured folder,
-            # but Chaptarr 400s ("root folder does not have <media> defaults
+            # but Shelfmark 400s ("root folder does not have <media> defaults
             # configured") if that folder isn't set up for this media type. So
-            # retry once without it, letting Chaptarr fall back to its default root.
+            # retry once without it, letting Shelfmark fall back to its default root.
             media_root_key = f"{media}RootFolderPath"
             a[media_root_key] = rf
             r = requests.post(f"{url()}/api/v1/author", headers=_h(), json=a, timeout=90)
@@ -313,12 +313,12 @@ def add_and_search(title: str, author: str, asin: str = "", fmt: str = "audioboo
             if not r.ok:
                 body = r.text or ""
                 if r.status_code in (502, 503) or "V5 API" in body or "author info" in body:
-                    return {"ok": False, "retry": True, "detail": "Chaptarr's metadata service is down right now, so it can't add "
-                            "books — this is a Chaptarr-side issue, not Stackarr. We've kept your pick; retry shortly."}
+                    return {"ok": False, "retry": True, "detail": "Shelfmark's metadata service is down right now, so it can't add "
+                            "books — this is a Shelfmark-side issue, not Stackarr. We've kept your pick; retry shortly."}
                 if "Invalid Path" in body:
-                    return {"ok": False, "detail": "Chaptarr rejected the root folder path — check Settings → Connections → "
-                            "Chaptarr root folder matches a path that exists inside the Chaptarr container."}
-                return {"ok": False, "detail": "Chaptarr couldn't add this one right now — please try again in a bit."}
+                    return {"ok": False, "detail": "Shelfmark rejected the root folder path — check Settings → Connections → "
+                            "Shelfmark root folder matches a path that exists inside the Shelfmark container."}
+                return {"ok": False, "detail": "Shelfmark couldn't add this one right now — please try again in a bit."}
             author_obj = r.json()
         author_id = author_obj.get("id")
         # Gate: the author must be monitored AND set up for this media type before
@@ -334,7 +334,7 @@ def add_and_search(title: str, author: str, asin: str = "", fmt: str = "audioboo
             time.sleep(2)
         if not books:
             return {"ok": True, "ref": str(author_id),
-                    "detail": f"Added “{author_obj.get('authorName')}” to Chaptarr; it'll search once its catalogue finishes loading."}
+                    "detail": f"Added “{author_obj.get('authorName')}” to Shelfmark; it'll search once its catalogue finishes loading."}
         # Monitor the target book(s) then dispatch a search. These calls are
         # checked (HTTP status + transport errors) so we never claim "it's
         # searching now" when nothing actually started — the old code ignored the
@@ -369,11 +369,11 @@ def add_and_search(title: str, author: str, asin: str = "", fmt: str = "audioboo
             # NOT fall back to grabbing the entire backlist (that also re-monitored
             # books the user had marked read, silently undoing it).
             return {"ok": False, "ref": str(author_id),
-                    "detail": f"Added “{author_obj.get('authorName')}” to Chaptarr, but couldn't find “{title}” to search."}
+                    "detail": f"Added “{author_obj.get('authorName')}” to Shelfmark, but couldn't find “{title}” to search."}
         if ok:
             return {"ok": True, "ref": str(author_id),
-                    "detail": f"Sent “{name}” to Chaptarr — it's searching now."}
+                    "detail": f"Sent “{name}” to Shelfmark — it's searching now."}
         return {"ok": False, "ref": str(author_id),
-                "detail": f"Added “{author_obj.get('authorName')}” to Chaptarr, but the search didn't start — retry shortly."}
+                "detail": f"Added “{author_obj.get('authorName')}” to Shelfmark, but the search didn't start — retry shortly."}
     except Exception:
-        return {"ok": False, "detail": "Couldn't reach Chaptarr — check it's running and connected in Settings."}
+        return {"ok": False, "detail": "Couldn't reach Shelfmark — check it's running and connected in Settings."}

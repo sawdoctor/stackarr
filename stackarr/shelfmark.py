@@ -55,12 +55,12 @@ def configured() -> bool:
 
 
 def monitored_keys() -> set[str]:
-    '''Compatibility with Stackarr's old Chaptarr integration.'''
+    '''Compatibility with Stackarr's old Shelfmark integration.'''
     return set()
 
 
 def mark_read(title: str, author: str) -> bool:
-    '''Shelfmark has no Chaptarr-style monitor flag to disable.'''
+    '''Shelfmark has no Shelfmark-style monitor flag to disable.'''
     return False
 
 
