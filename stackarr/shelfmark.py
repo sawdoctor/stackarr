@@ -417,8 +417,14 @@ def _download_release(
 
     extra = payload.get("extra")
     release_author = extra.get("author") if isinstance(extra, dict) else None
-    if not payload.get("author"):
-        payload["author"] = release_author or requested_author
+
+    # Shelfmark uses task.author for the {Author} destination folder.
+    # Prefer Stackarr's canonical requested author over release contributors.
+    canonical_author = (requested_author or "").strip()
+    if canonical_author:
+        payload["author"] = canonical_author
+    elif not payload.get("author"):
+        payload["author"] = release_author
 
     try:
         r = session.post(
