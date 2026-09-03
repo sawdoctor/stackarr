@@ -266,6 +266,54 @@ def _score_release(release: dict[str, Any], title: str, author: str) -> int | No
     if not wanted_title or wanted_title not in release_title:
         return None
 
+    # Reject a different work whose title merely contains the requested title
+    # later in the release name, e.g.
+    # "Neil Gaiman - Don't Panic - Douglas Adams - The Hitchhiker's Guide..."
+    pos = release_title.find(wanted_title)
+    prefix = release_title[:pos].strip()
+
+    suspicious_prefix_penalty = 0
+
+    if prefix:
+        allowed = set(wanted_title.split())
+        allowed.update(_norm(author).split())
+        allowed.update({
+            "hugo", "winner", "nominee", "award", "novel", "book",
+            "retail", "epub", "ebook", "edition", "uk", "us",
+        })
+
+        unexplained = [
+            word for word in prefix.split()
+            if len(word) >= 3
+            and not word.isdigit()
+            and word not in allowed
+        ]
+
+        if len(unexplained) >= 2:
+            suspicious_prefix_penalty = min(60, len(unexplained) * 15)
+
+    # Also penalize substantial extra title text after the requested title.
+    # This catches combined/multi-book releases without rejecting messy names.
+    suffix = release_title[pos + len(wanted_title):].strip()
+    suspicious_suffix_penalty = 0
+
+    if suffix:
+        allowed_suffix = set(_norm(author).split())
+        allowed_suffix.update({
+            "retail", "epub", "ebook", "pdf", "edition",
+            "unabridged", "revised", "updated", "uk", "us",
+        })
+
+        unexplained_suffix = [
+            word for word in suffix.split()
+            if len(word) >= 3
+            and not word.isdigit()
+            and word not in allowed_suffix
+        ]
+
+        if len(unexplained_suffix) >= 3:
+            suspicious_suffix_penalty = min(60, len(unexplained_suffix) * 12)
+
     if explicit_foreign_language(str(release.get("title") or ""), title):
         return None
 
@@ -278,7 +326,7 @@ def _score_release(release: dict[str, Any], title: str, author: str) -> int | No
     if fmt not in {"epub", "pdf"}:
         return None
 
-    score = 100
+    score = 100 - suspicious_prefix_penalty - suspicious_suffix_penalty
 
     if release_title == wanted_title:
         score += 80

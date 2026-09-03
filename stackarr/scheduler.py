@@ -442,6 +442,36 @@ def refresh_library():
             lib = re.sub(r"[^a-z0-9]", "", (library_author or "").split(",")[0].lower())
             return bool(req and lib and (req in lib or lib in req))
 
+        def kavita_filename_match(request_title, request_author, library_title):
+            """Match Kavita filename-derived titles conservatively.
+
+            Handles forms such as:
+            "Douglas Adams - The Hitchhiker's Guide to the Galaxy.2007.EPUB"
+            without accepting unrelated works that merely mention the title.
+            """
+            clean = lambda x: re.sub(r"[^a-z0-9]+", " ", (x or "").lower()).strip()
+
+            req = clean(request_title)
+            author = clean((request_author or "").split(",")[0])
+            lib = clean(library_title)
+
+            if not req or not author or not lib.startswith(author + " "):
+                return False
+
+            rest = lib[len(author):].strip()
+            if rest == req:
+                return True
+            if not rest.startswith(req + " "):
+                return False
+
+            tail = rest[len(req):].strip().split()
+            return bool(tail) and all(
+                t in {"epub","ebook","pdf","retail","edition"}
+                or re.fullmatch(r"(19|20)\d\d", t)
+                or re.fullmatch(r"v\d+(?:\d+)?", t)
+                for t in tail
+            )
+
         for r in c.execute("SELECT id,user_id,title,author,cover,format FROM requests WHERE status IN ('queued','handed','failed')"):
             candidates = c.execute(
                 "SELECT title,author,source FROM library "
@@ -460,10 +490,26 @@ def refresh_library():
                     f"{req_title}: {req_title}"
                 )
 
-                if not title_match(r["title"], item["title"]) and not repeated_title:
+                kavita_filename = (
+                    (item["source"] or "").lower() == "kavita"
+                    and not (item["author"] or "").strip()
+                    and kavita_filename_match(
+                        r["title"], r["author"], item["title"]
+                    )
+                )
+
+                if (
+                    not title_match(r["title"], item["title"])
+                    and not repeated_title
+                    and not kavita_filename
+                ):
                     continue
 
-                if repeated_title or author_match(r["author"], item["author"]):
+                if (
+                    repeated_title
+                    or kavita_filename
+                    or author_match(r["author"], item["author"])
+                ):
                     hit = True
                     break
 
