@@ -7,7 +7,7 @@ import logging
 import threading
 import time
 
-from . import absclient, backends, config, db, formats, notify, recommend, shelfmark
+from . import absclient, audiobridge, backends, config, db, formats, notify, recommend, shelfmark
 
 log = logging.getLogger("stackarr.scheduler")
 
@@ -211,12 +211,92 @@ def reconcile_ebook_acquisitions():
                 )
 
 
+def reconcile_audiobook_acquisitions():
+    """Mirror asynchronous ABB/TorBox bridge failures back into Stackarr."""
+    with db.conn() as c:
+        rows = [
+            dict(r)
+            for r in c.execute(
+                "SELECT id,asin,title,status,detail,chaptarr_ref "
+                "FROM requests "
+                "WHERE format='audiobook' "
+                "AND status IN ('queued','handed') "
+                "AND chaptarr_ref IS NOT NULL "
+                "AND chaptarr_ref<>''"
+            )
+        ]
+
+    for row in rows:
+        ref = str(row.get("chaptarr_ref") or row.get("asin") or "").strip()
+        if not ref:
+            continue
+
+        job = audiobridge.job_status(ref)
+        if not isinstance(job, dict):
+            continue
+
+        state = str(job.get("status") or "").strip().lower()
+        error = str(job.get("error") or "").strip()
+
+        if state in {"needs_review", "failed"}:
+            reason = error or (
+                "Audiobook bridge needs manual review"
+                if state == "needs_review"
+                else "Audiobook bridge failed"
+            )
+            with db.conn() as c:
+                c.execute(
+                    "UPDATE requests "
+                    "SET status='failed',detail=?,updated_at=datetime('now','localtime') "
+                    "WHERE id=?",
+                    (reason, row["id"]),
+                )
+            log.warning(
+                "audiobook request %s failed in bridge: %s",
+                row["id"], reason,
+            )
+            continue
+
+        if state in {"received", "searching", "monitoring"}:
+            detail = {
+                "received": "Audiobook bridge accepted the request.",
+                "searching": "Audiobook bridge is searching AudiobookBay.",
+                "monitoring": "Audiobook queued in Shelfmark; monitoring acquisition.",
+            }[state]
+            with db.conn() as c:
+                c.execute(
+                    "UPDATE requests "
+                    "SET status='handed',detail=?,updated_at=datetime('now','localtime') "
+                    "WHERE id=?",
+                    (detail, row["id"]),
+                )
+            continue
+
+        if state in {"complete", "complete_unmarked"}:
+            with db.conn() as c:
+                c.execute(
+                    "UPDATE requests "
+                    "SET status='handed',detail=?,updated_at=datetime('now','localtime') "
+                    "WHERE id=?",
+                    (
+                        "Audiobook acquisition completed; waiting for "
+                        "Audiobookshelf library reconciliation.",
+                        row["id"],
+                    ),
+                )
+
+
 def _ebook_acquisition_loop():
     while True:
         try:
             reconcile_ebook_acquisitions()
         except Exception as exc:
             log.warning("ebook acquisition reconciliation failed: %s", exc)
+
+        try:
+            reconcile_audiobook_acquisitions()
+        except Exception as exc:
+            log.warning("audiobook acquisition reconciliation failed: %s", exc)
 
         time.sleep(_EBOOK_RETRY_POLL_SECONDS)
 
@@ -582,6 +662,11 @@ def start():
         reconcile_ebook_acquisitions()
     except Exception as exc:
         log.warning("startup ebook acquisition reconciliation failed: %s", exc)
+
+    try:
+        reconcile_audiobook_acquisitions()
+    except Exception as exc:
+        log.warning("startup audiobook acquisition reconciliation failed: %s", exc)
 
     threading.Thread(
         target=_ebook_acquisition_loop,

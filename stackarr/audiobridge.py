@@ -16,6 +16,44 @@ def bridge_token() -> str:
     return os.environ.get("AUDIOBOOK_BRIDGE_TOKEN", "")
 
 
+def job_status(asin: str) -> dict | None:
+    """Return the bridge's current asynchronous job state.
+
+    Network/bridge errors are treated as unknown so a temporary outage never
+    falsely marks an otherwise valid request as failed.
+    """
+    asin = (asin or "").strip()
+    if not asin or not bridge_url() or not bridge_token():
+        return None
+
+    try:
+        r = requests.get(
+            f"{bridge_url()}/status/{asin}",
+            headers={"X-Bridge-Token": bridge_token()},
+            timeout=20,
+        )
+    except requests.RequestException as e:
+        log.warning("audiobook bridge status failed for %r: %s", asin, e)
+        return None
+
+    if r.status_code == 404:
+        return None
+
+    if r.status_code != 200:
+        log.warning(
+            "audiobook bridge status returned HTTP %s for %r",
+            r.status_code, asin,
+        )
+        return None
+
+    try:
+        data = r.json()
+    except ValueError:
+        return None
+
+    return data if isinstance(data, dict) else None
+
+
 def add_and_search(title: str, author: str, asin: str = "") -> dict:
     """Hand one audiobook to the existing, proven ABB/TorBox bridge."""
 
