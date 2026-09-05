@@ -443,24 +443,38 @@ def refresh_library():
             return bool(req and lib and (req in lib or lib in req))
 
         def kavita_filename_match(request_title, request_author, library_title):
-            """Match Kavita filename-derived titles conservatively.
+            """Match Kavita filename-derived titles conservatively."""
+            import html
 
-            Handles forms such as:
-            "Douglas Adams - The Hitchhiker's Guide to the Galaxy.2007.EPUB"
-            without accepting unrelated works that merely mention the title.
-            """
-            clean = lambda x: re.sub(r"[^a-z0-9]+", " ", (x or "").lower()).strip()
+            clean = lambda x: re.sub(
+                r"[^a-z0-9]+", " ", html.unescape(x or "").lower()
+            ).strip()
 
             req = clean(request_title)
-            author = clean((request_author or "").split(",")[0])
             lib = clean(library_title)
+            authors = [
+                clean(a)
+                for a in re.split(r"\s*,\s*", request_author or "")
+                if clean(a)
+            ]
 
-            if not req or not author or not lib.startswith(author + " "):
+            if not req or not lib or not authors:
                 return False
 
-            rest = lib[len(author):].strip()
+            pos = lib.find(req)
+            if pos <= 0:
+                return False
+
+            prefix = lib[:pos].strip()
+
+            # At least one requested author must be present before the title.
+            if not any(a in prefix for a in authors):
+                return False
+
+            rest = lib[pos:].strip()
             if rest == req:
                 return True
+
             if not rest.startswith(req + " "):
                 return False
 

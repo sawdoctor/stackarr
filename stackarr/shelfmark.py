@@ -261,10 +261,43 @@ def _release_format(release: dict[str, Any]) -> str:
 
 
 def _score_release(release: dict[str, Any], title: str, author: str) -> int | None:
-    release_title = _norm(str(release.get("title") or ""))
+    raw_release_title = str(release.get("title") or "")
+    release_title = _norm(raw_release_title)
     wanted_title = _norm(title)
     if not wanted_title or wanted_title not in release_title:
         return None
+
+    # Do not mistake a requested title used only as a numbered series label
+    # for the actual book title, e.g.
+    # "Tich Brewster - [Angels & Demons 01] - Devada".
+    import html
+
+    raw_unescaped = html.unescape(raw_release_title)
+
+    for bracket in re.finditer(r"\[([^\]]+)\]|\(([^)]+)\)", raw_unescaped):
+        bracket_key = _norm(bracket.group(1) or bracket.group(2))
+
+        if not re.fullmatch(
+            re.escape(wanted_title) + r"\s+(?:book\s+)?\d+(?:\.\d+)?",
+            bracket_key,
+        ):
+            continue
+
+        after = _norm(raw_unescaped[bracket.end():])
+
+        # "[Series 01] - Requested Title" is fine. A different substantive
+        # title after the series marker means this is another work.
+        if after.startswith(wanted_title):
+            continue
+
+        metadata = {"retail", "epub", "ebook", "pdf", "edition", "uk", "us"}
+        meaningful = [
+            word for word in after.split()
+            if word not in metadata and not word.isdigit()
+        ]
+
+        if meaningful:
+            return None
 
     # Reject a different work whose title merely contains the requested title
     # later in the release name, e.g.

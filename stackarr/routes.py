@@ -715,7 +715,12 @@ def book_page(asin):
         cached = _cached_book(asin)
         b.update({k: v for k, v in cached.items() if v and not b.get(k)})
     b.setdefault("title", "Unknown")
-    b["state"] = _state_for(asin, b.get("title", ""), b.get("author", ""))
+    b["state"] = _state_for(
+        asin,
+        b.get("title", ""),
+        b.get("author", ""),
+        fmt=b.get("format"),
+    )
     u = auth.current_user()
     key = db.rating_key(asin if not asin.startswith(("gb:", "ol:", "hc:")) else "",
                         b.get("title", ""), b.get("author", "")) if asin.startswith(("gb:", "ol:", "hc:")) else asin
